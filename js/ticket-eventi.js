@@ -65,6 +65,7 @@ export async function render(container) {
           ${[
             {id:'info', label:'📋 Info'},
             {id:'categorie', label:'🎫 Biglietti'},
+            {id:'slot', label:'⏱️ Slot'},
             {id:'postazioni', label:'🍕 Postazioni'},
             {id:'foto', label:'📸 Foto'},
             {id:'sezioni', label:'📄 Contenuti'},
@@ -297,7 +298,7 @@ function aggiornaStatoBadge() {
 // ============================================
 function cambiaTab(tab) {
   tabCorrente = tab;
-  ['info','categorie','postazioni','foto','sezioni'].forEach(t => {
+  ['info','categorie','slot','postazioni','foto','sezioni'].forEach(t => {
     const btn = document.getElementById('tab-' + t);
     if (!btn) return;
     btn.style.borderBottomColor = t === tab ? V : 'transparent';
@@ -309,6 +310,7 @@ function cambiaTab(tab) {
   switch (tab) {
     case 'info': renderTabInfo(body); break;
     case 'categorie': renderTabCategorie(body); break;
+    case 'slot': renderTabSlot(body); break;
     case 'postazioni': renderTabPostazioni(body); break;
     case 'foto': renderTabFoto(body); break;
     case 'sezioni': renderTabSezioni(body); break;
@@ -612,6 +614,270 @@ async function apriFormCategoria(catId) {
       alert('Errore: ' + err.message);
     }
   };
+}
+
+// ============================================
+// TAB SLOT
+// ============================================
+async function renderTabSlot(body) {
+  if (!eventoCorrente) {
+    body.innerHTML = `<div style="text-align:center;padding:40px;color:#aaa">Salva prima l'evento per configurare gli slot</div>`;
+    return;
+  }
+
+  const { data: slots } = await supa().from('ticket_slot')
+    .select('*, ticket_slot_categorie(*, ticket_categorie_prezzo(nome, colore, icona))')
+    .eq('evento_id', eventoCorrente.id)
+    .order('data').order('ora_inizio');
+
+  const { data: cats } = await supa().from('ticket_categorie_prezzo')
+    .select('*').eq('evento_id', eventoCorrente.id).eq('attiva', true).order('ordine');
+
+  const capTotale = eventoCorrente.capacita_totale || 100;
+  const nCats = cats?.length || 1;
+  const oraInizioDefault = eventoCorrente.data_inizio ? new Date(eventoCorrente.data_inizio).toTimeString().slice(0,5) : '18:00';
+  const oraFineDefault = eventoCorrente.data_fine ? new Date(eventoCorrente.data_fine).toTimeString().slice(0,5) : '22:00';
+  const dataInizioDefault = eventoCorrente.data_inizio ? eventoCorrente.data_inizio.slice(0,10) : '';
+  const dataFineDefault = eventoCorrente.data_fine ? eventoCorrente.data_fine.slice(0,10) : '';
+  const intervConsigliato = Math.max(10, Math.ceil(capTotale / 4 / 5) * 5);
+
+  const V2 = '#7C3AED', A2 = '#B45309', T2 = '#0D9488', BG2 = '#F5F3FF';
+
+  body.innerHTML = \`
+    <div style="background:\${BG2};border:1.5px solid \${V2};border-radius:12px;padding:20px;margin-bottom:24px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <span style="font-size:18px">🤖</span>
+        <div>
+          <div style="font-size:14px;font-weight:500;color:\${V2}">Generatore automatico slot</div>
+          <div style="font-size:12px;color:#888">Consiglio basato su capienza evento (\${capTotale} pax)</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px">
+        <div>
+          <label style="font-size:11px;color:#666;font-weight:500">Data inizio</label>
+          <input id="sl-data-inizio" type="date" value="\${dataInizioDefault}"
+            style="width:100%;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:13px;margin-top:4px;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="font-size:11px;color:#666;font-weight:500">Data fine</label>
+          <input id="sl-data-fine" type="date" value="\${dataFineDefault}"
+            style="width:100%;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:13px;margin-top:4px;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="font-size:11px;color:#666;font-weight:500">Ora inizio</label>
+          <input id="sl-ora-inizio" type="time" value="\${oraInizioDefault}"
+            style="width:100%;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:13px;margin-top:4px;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="font-size:11px;color:#666;font-weight:500">Ora fine</label>
+          <input id="sl-ora-fine" type="time" value="\${oraFineDefault}"
+            style="width:100%;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:13px;margin-top:4px;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="font-size:11px;color:#666;font-weight:500">Intervallo (min) — consigliato: \${intervConsigliato}'</label>
+          <input id="sl-intervallo" type="number" value="\${intervConsigliato}" min="5" max="120" step="5"
+            oninput="window._tastingAggiornaConsiglio()"
+            style="width:100%;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:13px;margin-top:4px;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="font-size:11px;color:#666;font-weight:500">Capienza per slot</label>
+          <input id="sl-capacita" type="number" value="\${capTotale}" min="1"
+            oninput="window._tastingAggiornaConsiglio()"
+            style="width:100%;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:13px;margin-top:4px;box-sizing:border-box">
+        </div>
+      </div>
+      \${cats?.length ? \`
+      <div style="background:#fff;border-radius:8px;padding:14px;margin-bottom:14px">
+        <div style="font-size:12px;font-weight:500;color:#555;margin-bottom:10px">Distribuzione capienza per categoria</div>
+        <div style="display:grid;gap:8px">
+          \${cats.map((c) => {
+            const isVip = c.icona === '⭐' || c.nome.toLowerCase().includes('vip');
+            const perc = isVip ? 15 : Math.floor(100 / nCats);
+            const pax = Math.floor(capTotale * perc / 100);
+            return \`<div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:16px">\${c.icona || '🎫'}</span>
+              <span style="font-size:13px;font-weight:500;min-width:120px">\${c.nome}</span>
+              <input type="number" id="sl-cat-\${c.id}" value="\${pax}" min="0"
+                oninput="window._tastingAggiornaConsiglio()"
+                style="width:80px;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:13px">
+              <span style="font-size:12px;color:#aaa">posti/slot</span>
+              <span id="sl-cat-perc-\${c.id}" style="font-size:11px;color:\${c.colore||V2};background:\${c.colore||V2}22;border-radius:4px;padding:2px 6px">\${perc}%</span>
+            </div>\`;
+          }).join('')}
+        </div>
+        <div id="sl-totale-check" style="margin-top:10px;font-size:12px;padding:8px;border-radius:6px;background:#f0fdf4;color:#16a34a">
+          ✓ Distribuzione configurata
+        </div>
+      </div>\` : '<div style="font-size:12px;color:#aaa;margin-bottom:14px">⚠️ Aggiungi prima le categorie biglietti per distribuire la capienza</div>'}
+      <div id="sl-preview" style="font-size:12px;color:#666;margin-bottom:14px;padding:10px;background:#fff;border-radius:8px"></div>
+      <button onclick="window._tastingGeneraSlot()"
+        style="width:100%;padding:12px;background:\${V2};color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer">
+        ⚡ Genera slot automaticamente
+      </button>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:14px;font-weight:500;color:#333">Slot configurati (\${slots?.length || 0})</div>
+      \${slots?.length ? \`<button onclick="window._tastingEliminaSlot()"
+        style="padding:6px 14px;background:#fff0f0;color:#e53e3e;border:1px solid #fca5a5;border-radius:8px;font-size:12px;cursor:pointer">
+        🗑 Elimina tutti e rigenera</button>\` : ''}
+    </div>
+    <div id="lista-slot">
+      \${!slots?.length ? \`<div style="text-align:center;padding:40px;color:#aaa;background:#fafafa;border-radius:10px">
+        <div style="font-size:32px;margin-bottom:10px">⏱️</div>Nessuno slot — usa il generatore
+      </div>\` : renderSlotPerGiorno(slots)}
+    </div>\`;
+
+  window._tastingAggiornaConsiglio = () => aggiornaPreviewSlot(cats);
+  window._tastingGeneraSlot = () => generaSlot(cats);
+  window._tastingEliminaSlot = () => eliminaTuttiSlot();
+  window._tastingToggleSlot = async (id, val) => {
+    await supa().from('ticket_slot').update({ attiva: val }).eq('id', id);
+    renderTabSlot(body);
+  };
+  aggiornaPreviewSlot(cats);
+}
+
+function renderSlotPerGiorno(slots) {
+  const perGiorno = {};
+  slots.forEach(s => { if (!perGiorno[s.data]) perGiorno[s.data] = []; perGiorno[s.data].push(s); });
+  return Object.entries(perGiorno).map(([data, slotG]) => {
+    const dataFmt = new Date(data + 'T12:00:00').toLocaleDateString('it-IT', { weekday:'long', day:'numeric', month:'long' });
+    const totV = slotG.reduce((s, sl) => s + (sl.venduti_totale || 0), 0);
+    const totC = slotG.reduce((s, sl) => s + sl.capacita_totale, 0);
+    const T2 = '#0D9488', A2 = '#B45309';
+    return \`<div style="margin-bottom:16px">
+      <div style="font-size:13px;font-weight:500;color:#555;padding:8px 0;border-bottom:1px solid #eee;margin-bottom:8px;display:flex;justify-content:space-between">
+        <span>📅 \${dataFmt}</span><span style="color:#aaa;font-size:12px">\${totV}/\${totC} venduti</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px">
+        \${slotG.map(sl => {
+          const perc = sl.capacita_totale > 0 ? Math.round((sl.venduti_totale / sl.capacita_totale) * 100) : 0;
+          const colBar = perc >= 90 ? '#e53e3e' : perc >= 70 ? A2 : T2;
+          return \`<div style="background:#fff;border:1px solid \${sl.attiva ? '#eee' : '#f5f5f5'};border-radius:10px;padding:12px;opacity:\${sl.attiva ? 1 : 0.6}">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <span style="font-size:15px;font-weight:600">\${sl.ora_inizio.slice(0,5)}\${sl.ora_fine ? ' → ' + sl.ora_fine.slice(0,5) : ''}</span>
+              <span style="width:8px;height:8px;border-radius:50%;background:\${sl.attiva ? T2 : '#ccc'};display:inline-block"></span>
+            </div>
+            <div style="font-size:12px;color:#888;margin-bottom:6px">\${sl.venduti_totale || 0}/\${sl.capacita_totale} posti</div>
+            <div style="height:4px;background:#f0f0f0;border-radius:4px;overflow:hidden;margin-bottom:8px">
+              <div style="height:100%;width:\${perc}%;background:\${colBar};border-radius:4px"></div>
+            </div>
+            \${sl.ticket_slot_categorie?.length ? \`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">
+              \${sl.ticket_slot_categorie.map(sc => \`<span style="font-size:10px;background:#f5f5f5;border-radius:4px;padding:1px 6px;color:#666">
+                \${sc.ticket_categorie_prezzo?.icona || '🎫'} \${sc.venduti}/\${sc.capacita}</span>\`).join('')}
+            </div>\` : ''}
+            <button onclick="window._tastingToggleSlot(\'\${sl.id}\',\${!sl.attiva})"
+              style="width:100%;padding:4px;border:1px solid #ddd;border-radius:6px;background:#fff;font-size:11px;cursor:pointer;color:#666">
+              \${sl.attiva ? 'Disattiva' : 'Riattiva'}</button>
+          </div>\`;
+        }).join('')}
+      </div>
+    </div>\`;
+  }).join('');
+}
+
+function aggiornaPreviewSlot(cats) {
+  const dataI = document.getElementById('sl-data-inizio')?.value;
+  const dataF = document.getElementById('sl-data-fine')?.value;
+  const oraI = document.getElementById('sl-ora-inizio')?.value;
+  const oraF = document.getElementById('sl-ora-fine')?.value;
+  const interv = parseInt(document.getElementById('sl-intervallo')?.value) || 20;
+  const cap = parseInt(document.getElementById('sl-capacita')?.value) || 100;
+  const preview = document.getElementById('sl-preview');
+  if (!preview || !dataI || !oraI || !oraF) return;
+
+  const d1 = new Date(dataI + 'T12:00:00'), d2 = new Date((dataF || dataI) + 'T12:00:00');
+  const giorni = Math.floor((d2 - d1) / 86400000) + 1;
+  const [oraIH, oraIM] = oraI.split(':').map(Number);
+  const [oraFH, oraFM] = oraF.split(':').map(Number);
+  const minTot = (oraFH * 60 + oraFM) - (oraIH * 60 + oraIM);
+  const slotPerGiorno = minTot > 0 ? Math.floor(minTot / interv) : 0;
+  const totSlot = slotPerGiorno * giorni;
+
+  cats?.forEach(c => {
+    const input = document.getElementById(\`sl-cat-\${c.id}\`);
+    const percEl = document.getElementById(\`sl-cat-perc-\${c.id}\`);
+    if (input && percEl) percEl.textContent = cap > 0 ? Math.round(parseInt(input.value || 0) / cap * 100) + '%' : '0%';
+  });
+
+  const totCheck = document.getElementById('sl-totale-check');
+  if (totCheck && cats?.length) {
+    const somma = cats.reduce((s, c) => s + (parseInt(document.getElementById(\`sl-cat-\${c.id}\`)?.value) || 0), 0);
+    const ok = somma === cap;
+    totCheck.style.background = ok ? '#f0fdf4' : '#fff0f0';
+    totCheck.style.color = ok ? '#16a34a' : '#e53e3e';
+    totCheck.textContent = ok ? \`✓ Totale: \${somma} posti/slot\` : \`⚠️ Totale: \${somma}/\${cap} — \${somma < cap ? 'mancano ' + (cap-somma) : 'eccesso di ' + (somma-cap)} posti\`;
+  }
+
+  preview.innerHTML = totSlot > 0
+    ? \`📊 <strong>\${totSlot} slot</strong> (\${slotPerGiorno}/giorno × \${giorni} giorn\${giorni===1?'o':'i'}) · <strong>\${(totSlot*cap).toLocaleString('it-IT')} posti totali</strong>\`
+    : '⚠️ Controlla date e orari';
+}
+
+async function generaSlot(cats) {
+  const dataI = document.getElementById('sl-data-inizio')?.value;
+  const dataF = document.getElementById('sl-data-fine')?.value;
+  const oraI = document.getElementById('sl-ora-inizio')?.value;
+  const oraF = document.getElementById('sl-ora-fine')?.value;
+  const interv = parseInt(document.getElementById('sl-intervallo')?.value) || 20;
+  const cap = parseInt(document.getElementById('sl-capacita')?.value) || 100;
+  if (!dataI || !oraI || !oraF) { alert('Compila data, ora inizio e ora fine'); return; }
+
+  const [oraIH, oraIM] = oraI.split(':').map(Number);
+  const [oraFH, oraFM] = oraF.split(':').map(Number);
+  const minTot = (oraFH * 60 + oraFM) - (oraIH * 60 + oraIM);
+  if (minTot <= 0) { alert('Ora fine deve essere dopo ora inizio'); return; }
+
+  const distCats = cats?.map(c => ({
+    categoria_id: c.id,
+    capacita: parseInt(document.getElementById(\`sl-cat-\${c.id}\`)?.value) || 0,
+  })).filter(dc => dc.capacita > 0) || [];
+
+  const d1 = new Date(dataI + 'T12:00:00');
+  const d2 = new Date((dataF || dataI) + 'T12:00:00');
+  const slotsToInsert = [];
+
+  for (let d = new Date(d1); d <= d2; d.setDate(d.getDate() + 1)) {
+    const dataStr = d.toISOString().slice(0, 10);
+    let minCurr = oraIH * 60 + oraIM;
+    const minFine = oraFH * 60 + oraFM;
+    while (minCurr + interv <= minFine) {
+      const hI = String(Math.floor(minCurr/60)).padStart(2,'0');
+      const mI = String(minCurr%60).padStart(2,'0');
+      const minNext = minCurr + interv;
+      const hF = String(Math.floor(minNext/60)).padStart(2,'0');
+      const mF = String(minNext%60).padStart(2,'0');
+      slotsToInsert.push({ evento_id: eventoCorrente.id, azienda_id: aziendaId, data: dataStr, ora_inizio: \`\${hI}:\${mI}\`, ora_fine: \`\${hF}:\${mF}\`, capacita_totale: cap, venduti_totale: 0, attivo: true });
+      minCurr = minNext;
+    }
+  }
+
+  if (!slotsToInsert.length) { alert('Nessuno slot da generare'); return; }
+
+  try {
+    const btn = document.querySelector('[onclick="window._tastingGeneraSlot()"]');
+    if (btn) { btn.textContent = 'Generazione in corso...'; btn.disabled = true; }
+    const { data: slotCreati, error } = await supa().from('ticket_slot').insert(slotsToInsert).select('id');
+    if (error) throw error;
+    if (distCats.length && slotCreati?.length) {
+      const catRows = [];
+      slotCreati.forEach(sl => distCats.forEach(dc => catRows.push({ slot_id: sl.id, categoria_id: dc.categoria_id, capacita: dc.capacita, venduti: 0 })));
+      if (catRows.length) await supa().from('ticket_slot_categorie').insert(catRows);
+    }
+    mostraToast(\`✅ \${slotCreati.length} slot generati\`);
+    renderTabSlot(document.getElementById('modal-body'));
+  } catch (err) {
+    alert('Errore: ' + err.message);
+  }
+}
+
+async function eliminaTuttiSlot() {
+  if (!confirm('Eliminare tutti gli slot?')) return;
+  try {
+    await supa().from('ticket_slot').delete().eq('evento_id', eventoCorrente.id);
+    mostraToast('🗑 Slot eliminati');
+    renderTabSlot(document.getElementById('modal-body'));
+  } catch (err) { alert('Errore: ' + err.message); }
 }
 
 // ============================================
