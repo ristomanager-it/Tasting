@@ -188,7 +188,7 @@ async function onLogin(user) {
   currentUser = user;
   const { data: dip } = await window.supabase
     .from('dipendenti')
-    .select('*, aziende(nome, logo_url)')
+    .select('id, user_id, azienda_id, nome, ruolo, attivo')
     .eq('user_id', user.id)
     .single();
 
