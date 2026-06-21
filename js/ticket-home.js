@@ -135,7 +135,7 @@ export async function render(container) {
       .order('data_inizio').limit(4),
     supa().from('ticket_ordini').select('id,nome_acquirente,totale,stato,created_at,ticket_categorie_prezzo(nome)')
       .eq('azienda_id', aziendaId).order('created_at', { ascending: false }).limit(6),
-    supa().from('ticket_slot').select('id,ora_inizio,ora_fine,capacita_totale,venduti_totale,attivo,ticket_eventi(nome)')
+    supa().from('ticket_slot').select('id,ora_inizio,ora_fine,capacita_totale,venduti_totale,attivo,evento_id')
       .eq('azienda_id', aziendaId).eq('data', oggi).eq('attivo', true).order('ora_inizio'),
     supa().from('ticket_biglietti').select('id').eq('azienda_id', aziendaId)
       .gte('created_at', oggi + 'T00:00:00').lte('created_at', oggi + 'T23:59:59'),
