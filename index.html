@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tasting — Ristoflow</title>
+  <meta name="description" content="Gestione eventi, biglietti e postazioni Tasting">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍷</text></svg>">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F5F3FF; min-height: 100vh; }
+    #app-topbar {
+      position: fixed; top: 0; left: 0; right: 0; height: 56px;
+      background: #fff; border-bottom: 1px solid #ede9fe;
+      display: flex; align-items: center; gap: 0; z-index: 100;
+      padding: 0 16px;
+    }
+    #sidebar {
+      position: fixed; top: 56px; left: 0; bottom: 0; width: 220px;
+      background: #fff; border-right: 1px solid #ede9fe;
+      overflow-y: auto; z-index: 90; transition: transform .25s;
+    }
+    #main-content {
+      margin-top: 56px; margin-left: 220px;
+      min-height: calc(100vh - 56px);
+      background: #F5F3FF;
+      transition: margin-left .25s;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px; cursor: pointer; font-size: 14px;
+      color: #555; border-left: 3px solid transparent;
+      transition: all .15s; text-decoration: none; border-radius: 0;
+    }
+    .nav-item:hover { background: #F5F3FF; color: #7C3AED; }
+    .nav-item.active { background: #F5F3FF; color: #7C3AED; border-left-color: #7C3AED; font-weight: 500; }
+    .nav-section { padding: 16px 16px 6px; font-size: 10px; font-weight: 600; color: #aaa; letter-spacing: 1.5px; text-transform: uppercase; }
+    #topbar-logo { display: flex; align-items: center; gap: 6px; text-decoration: none; }
+    #mobile-toggle { display: none; background: none; border: none; cursor: pointer; padding: 8px; color: #7C3AED; font-size: 20px; }
+    #sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 89; }
+    #login-screen { display: none; position: fixed; inset: 0; background: #F5F3FF; z-index: 200; align-items: center; justify-content: center; }
+    #loading-screen { position: fixed; inset: 0; background: #F5F3FF; z-index: 300; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px; }
+    @media (max-width: 768px) {
+      #sidebar { transform: translateX(-100%); }
+      #sidebar.open { transform: translateX(0); box-shadow: 4px 0 20px rgba(0,0,0,.15); }
+      #sidebar-overlay.open { display: block; }
+      #main-content { margin-left: 0; }
+      #mobile-toggle { display: block; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading-screen">
+  <div style="font-size:36px">🍷</div>
+  <div style="font-size:22px;font-weight:700;color:#7C3AED">T<span style="font-weight:300">asting</span></div>
+  <div style="font-size:13px;color:#aaa">Caricamento...</div>
+</div>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div style="background:#fff;border-radius:20px;padding:40px;width:100%;max-width:380px;box-shadow:0 8px 40px rgba(124,58,237,.12);text-align:center">
+    <div style="font-size:48px;margin-bottom:12px">🍷</div>
+    <div style="font-size:26px;font-weight:700;color:#7C3AED;margin-bottom:4px">T<span style="font-weight:300">asting</span></div>
+    <div style="font-size:13px;color:#aaa;margin-bottom:32px;letter-spacing:1px">ESPERIENZE · PERCORSI · SAPORI</div>
+    <div id="login-error" style="display:none;background:#fff0f0;color:#e53e3e;border-radius:8px;padding:10px;font-size:13px;margin-bottom:16px"></div>
+    <input id="login-email" type="email" placeholder="Email" autocomplete="email"
+      style="width:100%;padding:12px;border:1.5px solid #ede9fe;border-radius:10px;font-size:14px;margin-bottom:10px;outline:none">
+    <input id="login-password" type="password" placeholder="Password" autocomplete="current-password"
+      style="width:100%;padding:12px;border:1.5px solid #ede9fe;border-radius:10px;font-size:14px;margin-bottom:20px;outline:none">
+    <button id="login-btn"
+      style="width:100%;padding:13px;background:#7C3AED;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:500;cursor:pointer">
+      Accedi
+    </button>
+    <div style="margin-top:16px;font-size:12px;color:#aaa">Accesso riservato agli operatori Tasting</div>
+  </div>
+</div>
+
+<!-- TOPBAR -->
+<div id="app-topbar" style="display:none">
+  <button id="mobile-toggle" onclick="toggleSidebar()">☰</button>
+  <a id="topbar-logo" href="#" onclick="navigateTo('home')">
+    <span style="font-size:22px;font-weight:700;color:#7C3AED">T</span>
+    <span style="font-size:22px;font-weight:300;color:#7C3AED">asting</span>
+    <span style="background:#ede9fe;color:#7C3AED;border-radius:12px;padding:1px 10px;font-size:11px;font-weight:500;margin-left:4px">beta</span>
+  </a>
+
+  <div style="flex:1"></div>
+
+  <!-- Meteo placeholder -->
+  <div id="topbar-meteo" style="font-size:13px;color:#888;margin-right:16px"></div>
+
+  <!-- Utente -->
+  <div style="display:flex;align-items:center;gap:10px">
+    <div id="topbar-user" style="font-size:13px;color:#555;display:none"></div>
+    <div id="topbar-avatar"
+      style="width:32px;height:32px;border-radius:50%;background:#ede9fe;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#7C3AED;cursor:pointer"
+      onclick="toggleUserMenu()">?</div>
+    <div id="user-menu" style="display:none;position:absolute;top:52px;right:12px;background:#fff;border:1px solid #ede9fe;border-radius:12px;padding:8px;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.1);z-index:200">
+      <div id="user-menu-nome" style="padding:8px 12px;font-size:13px;font-weight:500;color:#333;border-bottom:1px solid #f0f0f0;margin-bottom:4px"></div>
+      <div onclick="navigateTo('home')" style="padding:8px 12px;font-size:13px;color:#555;cursor:pointer;border-radius:6px;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='#f5f3ff'" onmouseout="this.style.background=''">🏠 Dashboard</div>
+      <div onclick="logout()" style="padding:8px 12px;font-size:13px;color:#e53e3e;cursor:pointer;border-radius:6px;display:flex;align-items:center;gap:8px;margin-top:4px" onmouseover="this.style.background='#fff0f0'" onmouseout="this.style.background=''">🚪 Esci</div>
+    </div>
+  </div>
+</div>
+
+<!-- SIDEBAR OVERLAY -->
+<div id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<!-- SIDEBAR -->
+<div id="sidebar" style="display:none">
+  <div style="padding:16px;border-bottom:1px solid #ede9fe">
+    <div style="font-size:11px;color:#aaa;letter-spacing:1px">GESTIONE EVENTI</div>
+  </div>
+
+  <div class="nav-section">Principale</div>
+  <div class="nav-item" id="nav-home" onclick="navigateTo('home')">🏠 Dashboard</div>
+  <div class="nav-item" id="nav-eventi" onclick="navigateTo('eventi')">🎪 Eventi</div>
+  <div class="nav-item" id="nav-vendite" onclick="navigateTo('vendite')">🎫 Vendite & Biglietti</div>
+  <div class="nav-item" id="nav-checkin" onclick="navigateTo('checkin')">✅ Check-in</div>
+
+  <div class="nav-section">Strumenti</div>
+  <div class="nav-item" id="nav-scanner" onclick="window.open('scanner.html','_blank')">📷 Scanner QR</div>
+  <div class="nav-item" id="nav-report" onclick="navigateTo('report')">📊 Report</div>
+
+  <div style="padding:16px;margin-top:auto;border-top:1px solid #ede9fe;position:absolute;bottom:0;left:0;right:0;background:#fff">
+    <div style="font-size:11px;color:#aaa;text-align:center">Tasting by Ristoflow</div>
+    <div style="display:flex;justify-content:center;gap:8px;margin-top:6px">
+      <span style="width:8px;height:8px;border-radius:50%;background:#7C3AED;display:inline-block"></span>
+      <span style="width:8px;height:8px;border-radius:50%;background:#B45309;display:inline-block"></span>
+      <span style="width:8px;height:8px;border-radius:50%;background:#0D9488;display:inline-block"></span>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div id="main-content" style="display:none">
+  <div id="page-container" style="padding:0"></div>
+</div>
+
+<!-- Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPA_URL = 'https://cuhcscpvhypoaplcmtjk.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1aGNzY3B2aHlwb2FwbGNtdGprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4MjY4MjgsImV4cCI6MjA3OTQwMjgyOH0.q9zAs0oh8F1-whtORHBIORF5jIn1NTS3LvSMWleP0a0';
+window.supabase = supabase.createClient(SUPA_URL, SUPA_KEY);
+window.supabaseClient = window.supabase;
+
+let currentUser = null;
+let currentDipendente = null;
+let currentRoute = null;
+const moduleCache = {};
+
+// ============================================
+// INIT
+// ============================================
+async function init() {
+  // SSO via hash token (da gestionale/hotel)
+  const hash = window.location.hash;
+  if (hash.includes('access_token=')) {
+    const params = new URLSearchParams(hash.slice(1));
+    const access_token = params.get('access_token');
+    const refresh_token = params.get('refresh_token');
+    if (access_token && refresh_token) {
+      await window.supabase.auth.setSession({ access_token, refresh_token });
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }
+
+  const { data: { session } } = await window.supabase.auth.getSession();
+  if (session?.user) {
+    await onLogin(session.user);
+  } else {
+    mostraLogin();
+  }
+
+  window.supabase.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session?.user) {
+      await onLogin(session.user);
+    } else if (event === 'SIGNED_OUT') {
+      mostraLogin();
+    }
+  });
+}
+
+async function onLogin(user) {
+  currentUser = user;
+  const { data: dip } = await window.supabase
+    .from('dipendenti')
+    .select('*, aziende(nome, logo_url)')
+    .eq('user_id', user.id)
+    .single();
+
+  if (!dip) {
+    mostraLogin('Utente non autorizzato su Tasting');
+    return;
+  }
+  currentDipendente = dip;
+  mostraApp();
+  caricaMeteo();
+  navigateTo('eventi');
+}
+
+// ============================================
+// AUTH
+// ============================================
+function mostraLogin(errMsg) {
+  document.getElementById('loading-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app-topbar').style.display = 'none';
+  document.getElementById('sidebar').style.display = 'none';
+  document.getElementById('main-content').style.display = 'none';
+  if (errMsg) {
+    const el = document.getElementById('login-error');
+    el.textContent = errMsg;
+    el.style.display = 'block';
+  }
+}
+
+function mostraApp() {
+  document.getElementById('loading-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-topbar').style.display = 'flex';
+  document.getElementById('sidebar').style.display = 'block';
+  document.getElementById('main-content').style.display = 'block';
+
+  // Avatar e nome
+  const nome = currentDipendente?.nome || currentUser?.email?.split('@')[0] || '?';
+  const iniziali = nome.split(' ').map(p => p[0]).join('').toUpperCase().slice(0,2);
+  document.getElementById('topbar-avatar').textContent = iniziali;
+  document.getElementById('topbar-user').textContent = nome;
+  document.getElementById('topbar-user').style.display = 'block';
+  document.getElementById('user-menu-nome').textContent = nome;
+}
+
+async function logout() {
+  await window.supabase.auth.signOut();
+  currentUser = null;
+  currentDipendente = null;
+  document.getElementById('user-menu').style.display = 'none';
+}
+
+document.getElementById('login-btn').addEventListener('click', async () => {
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-password').value;
+  const btn = document.getElementById('login-btn');
+  if (!email || !pass) return;
+  btn.textContent = 'Accesso...';
+  btn.disabled = true;
+  const { error } = await window.supabase.auth.signInWithPassword({ email, password: pass });
+  if (error) {
+    const el = document.getElementById('login-error');
+    el.textContent = 'Credenziali non valide';
+    el.style.display = 'block';
+  }
+  btn.textContent = 'Accedi';
+  btn.disabled = false;
+});
+
+document.getElementById('login-password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('login-btn').click();
+});
+
+// ============================================
+// ROUTING
+// ============================================
+const routes = {
+  home:    { file: 'js/ticket-home.js',    label: 'Dashboard' },
+  eventi:  { file: 'js/ticket-eventi.js',  label: 'Eventi' },
+  vendite: { file: 'js/ticket-vendite.js', label: 'Vendite' },
+  checkin: { file: 'js/ticket-checkin.js', label: 'Check-in' },
+  report:  { file: 'js/ticket-report.js',  label: 'Report' },
+};
+
+async function navigateTo(route) {
+  if (!currentUser) return;
+  currentRoute = route;
+
+  // aggiorna nav
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const navEl = document.getElementById('nav-' + route);
+  if (navEl) navEl.classList.add('active');
+
+  // chiudi sidebar mobile
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
+
+  const container = document.getElementById('page-container');
+  container.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:center;height:60vh;flex-direction:column;gap:12px">
+      <div style="font-size:32px">🍷</div>
+      <div style="font-size:14px;color:#aaa">Caricamento...</div>
+    </div>`;
+
+  const cfg = routes[route];
+  if (!cfg) {
+    // route sconosciuta → eventi
+    navigateTo('eventi');
+    return;
+  }
+
+  try {
+    if (!moduleCache[route]) {
+      const mod = await import('./' + cfg.file);
+      moduleCache[route] = mod;
+    }
+    await moduleCache[route].render(container);
+  } catch (err) {
+    // modulo non ancora costruito
+    container.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:center;height:60vh;flex-direction:column;gap:16px">
+        <div style="font-size:48px">🚧</div>
+        <div style="font-size:18px;font-weight:500;color:#7C3AED">${cfg.label}</div>
+        <div style="font-size:13px;color:#aaa">Modulo in costruzione</div>
+      </div>`;
+  }
+}
+
+// ============================================
+// SIDEBAR MOBILE
+// ============================================
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+}
+
+// ============================================
+// USER MENU
+// ============================================
+function toggleUserMenu() {
+  const m = document.getElementById('user-menu');
+  m.style.display = m.style.display === 'none' ? 'block' : 'none';
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('#topbar-avatar') && !e.target.closest('#user-menu')) {
+    document.getElementById('user-menu').style.display = 'none';
+  }
+});
+
+// ============================================
+// METEO (Nominatim + Open-Meteo)
+// ============================================
+async function caricaMeteo() {
+  try {
+    const { data: sede } = await window.supabase
+      .from('sedi')
+      .select('citta, lat, lng')
+      .eq('azienda_id', currentDipendente.azienda_id)
+      .limit(1)
+      .single();
+
+    let lat = sede?.lat, lng = sede?.lng, citta = sede?.citta || '';
+
+    if (!lat && citta) {
+      const geo = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(citta)}&format=json&limit=1`).then(r => r.json());
+      if (geo?.[0]) { lat = geo[0].lat; lng = geo[0].lon; }
+    }
+    if (!lat) return;
+
+    const w = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`).then(r => r.json());
+    const temp = Math.round(w.current_weather?.temperature);
+    const wcode = w.current_weather?.weathercode;
+    const icona = wcode <= 1 ? '☀️' : wcode <= 3 ? '⛅' : wcode <= 67 ? '🌧️' : '🌨️';
+    document.getElementById('topbar-meteo').textContent = `${icona} ${temp}°C`;
+  } catch (_) {}
+}
+
+// ============================================
+// START
+// ============================================
+init();
+</script>
+</body>
+</html>
