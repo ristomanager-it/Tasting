@@ -8,6 +8,47 @@ const BG = '#F5F3FF';
 
 const supa = () => window.supabaseClient || window.supabase;
 
+// ============================================
+// UPLOAD SUPABASE STORAGE
+// ============================================
+async function uploadTastingMedia(file, folder) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  const filename = folder + '/' + Date.now() + '-' + Math.random().toString(36).slice(2) + '.' + ext;
+  const { data, error } = await supa().storage.from('tasting-media').upload(filename, file, { upsert: true });
+  if (error) throw error;
+  const { data: pub } = supa().storage.from('tasting-media').getPublicUrl(filename);
+  return pub.publicUrl;
+}
+
+function renderUploadBox(id, label, currentUrl, onUpload, color) {
+  const c = color || '#7C3AED';
+  const elId = 'upload-box-' + id;
+  const inputId = 'upload-input-' + id;
+  const previewId = 'upload-preview-' + id;
+  const borderCol = currentUrl ? c : '#ddd';
+  const bgCol = currentUrl ? (c + '11') : '#fafafa';
+  const previewHtml = currentUrl
+    ? '<img id="' + previewId + '" src="' + currentUrl + '" style="max-height:80px;max-width:100%;border-radius:6px;object-fit:cover;display:block;margin:0 auto 8px">'
+    : '<div id="' + previewId + '" style="font-size:28px;margin-bottom:6px">📁</div>';
+  const labelHtml = label ? '<div style="font-size:12px;color:#666;font-weight:500;margin-bottom:6px">' + label + '</div>' : '';
+  const boxLabel = currentUrl ? 'Clicca per cambiare' : 'Clicca per caricare';
+  const html = '<div style="margin-top:4px">'
+    + labelHtml
+    + '<div id="' + elId + '" style="border:2px dashed ' + borderCol + ';border-radius:10px;padding:16px;text-align:center;cursor:pointer;background:' + bgCol + '">'
+    + previewHtml
+    + '<div style="font-size:12px;color:#888">' + boxLabel + '</div>'
+    + '<input type="file" id="' + inputId + '" accept="image/*" style="display:none" onchange="' + onUpload + '">'
+    + '</div>'
+    + '</div>';
+  setTimeout(function() {
+    var box = document.getElementById(elId);
+    var inp = document.getElementById(inputId);
+    if (box && inp) box.addEventListener('click', function(e) { if (e.target !== inp) inp.click(); });
+  }, 50);
+  return html;
+}
+
+
 let aziendaId = null;
 let eventoCorrente = null;
 let tabCorrente = 'info';
@@ -393,15 +434,20 @@ function renderTabInfo(body) {
           style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box;resize:vertical">${e.storia || ''}</textarea>
       </div>
 
-      <div>
-        <label style="font-size:12px;color:#666;font-weight:500">URL immagine copertina</label>
-        <input id="ev-immagine" value="${e.immagine_url || ''}" placeholder="https://..."
-          style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box">
-      </div>
-      <div>
-        <label style="font-size:12px;color:#666;font-weight:500">URL video (YouTube/Vimeo)</label>
-        <input id="ev-video" value="${e.video_url || ''}" placeholder="https://youtube.com/embed/..."
-          style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box">
+      <div style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+        <div>
+          <div id="upload-copertina-html"></div>
+          <input id="ev-immagine" type="hidden" value="${e.immagine_url || ''}">
+        </div>
+        <div>
+          <div id="upload-logo-html"></div>
+          <input id="ev-logo" type="hidden" value="${e.logo_url || ''}">
+        </div>
+        <div>
+          <label style="font-size:12px;color:#666;font-weight:500">URL video (YouTube/Vimeo)</label>
+          <input id="ev-video" value="${e.video_url || ''}" placeholder="https://youtube.com/embed/..."
+            style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box">
+        </div>
       </div>
 
       <div style="grid-column:1/-1">
@@ -428,6 +474,40 @@ function renderTabInfo(body) {
       if (preview) preview.textContent = slugEl.value || '...';
     });
   }
+
+  // Init upload boxes
+  const copEl = document.getElementById('upload-copertina-html');
+  const logoEl = document.getElementById('upload-logo-html');
+  if (copEl) copEl.innerHTML = renderUploadBox('copertina', 'Foto copertina', e.immagine_url || '', 'window._tastingUploadCopertina(event)', V);
+  if (logoEl) logoEl.innerHTML = renderUploadBox('logo', 'Logo evento', e.logo_url || '', 'window._tastingUploadLogo(event)', A);
+
+  window._tastingUploadCopertina = async (event) => {
+    const file = event.target.files[0]; if (!file) return;
+    const box = document.getElementById('upload-box-copertina');
+    if (box) box.style.opacity = '0.5';
+    try {
+      const url = await uploadTastingMedia(file, 'copertine');
+      document.getElementById('ev-immagine').value = url;
+      const prev = document.getElementById('upload-preview-copertina');
+      if (prev) { prev.outerHTML = '<img id="upload-preview-copertina" src="' + url + '" style="max-height:80px;max-width:100%;border-radius:6px;object-fit:cover;display:block;margin:0 auto 8px">'; }
+      if (box) { box.style.opacity = '1'; box.style.borderColor = V; box.style.background = V + '08'; }
+      mostraToast('✅ Copertina caricata');
+    } catch(err) { alert('Errore upload: ' + err.message); if (box) box.style.opacity = '1'; }
+  };
+
+  window._tastingUploadLogo = async (event) => {
+    const file = event.target.files[0]; if (!file) return;
+    const box = document.getElementById('upload-box-logo');
+    if (box) box.style.opacity = '0.5';
+    try {
+      const url = await uploadTastingMedia(file, 'loghi');
+      document.getElementById('ev-logo').value = url;
+      const prev = document.getElementById('upload-preview-logo');
+      if (prev) { prev.outerHTML = '<img id="upload-preview-logo" src="' + url + '" style="max-height:80px;max-width:100%;border-radius:6px;object-fit:contain;display:block;margin:0 auto 8px">'; }
+      if (box) { box.style.opacity = '1'; box.style.borderColor = A; box.style.background = A + '08'; }
+      mostraToast('✅ Logo caricato');
+    } catch(err) { alert('Errore upload: ' + err.message); if (box) box.style.opacity = '1'; }
+  };
 }
 
 // ============================================
@@ -977,14 +1057,14 @@ async function apriFormPostazione(postId) {
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div>
-            <label style="font-size:12px;color:#666;font-weight:500">URL foto principale</label>
-            <input id="p-foto" value="${p.immagine_url || ''}" placeholder="https://..."
-              style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box">
+            <label style="font-size:12px;color:#666;font-weight:500">Foto principale</label>
+            <div id="upload-post-foto-html"></div>
+            <input id="p-foto" type="hidden" value="${p.immagine_url || ''}">
           </div>
           <div>
-            <label style="font-size:12px;color:#666;font-weight:500">URL foto produttore</label>
-            <input id="p-foto-prod" value="${p.foto_produttore_url || ''}" placeholder="https://..."
-              style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box">
+            <label style="font-size:12px;color:#666;font-weight:500">Foto produttore</label>
+            <div id="upload-post-prod-html"></div>
+            <input id="p-foto-prod" type="hidden" value="${p.foto_produttore_url || ''}">
           </div>
         </div>
         <div>
@@ -1008,6 +1088,32 @@ async function apriFormPostazione(postId) {
       </div>
     </div>`;
   document.body.appendChild(overlay);
+
+  const upPostEl = document.getElementById('upload-post-foto-html');
+  const upProdEl = document.getElementById('upload-post-prod-html');
+  if (upPostEl) upPostEl.innerHTML = renderUploadBox('post-foto', '', p.immagine_url || '', 'window._tastingUploadPostFoto(event)', '#0D9488');
+  if (upProdEl) upProdEl.innerHTML = renderUploadBox('post-prod', '', p.foto_produttore_url || '', 'window._tastingUploadPostProd(event)', '#0D9488');
+
+  window._tastingUploadPostFoto = async (event) => {
+    const file = event.target.files[0]; if (!file) return;
+    try {
+      const url = await uploadTastingMedia(file, 'postazioni');
+      document.getElementById('p-foto').value = url;
+      const prev = document.getElementById('upload-preview-post-foto');
+      if (prev) prev.outerHTML = '<img id="upload-preview-post-foto" src="' + url + '" style="max-height:80px;max-width:100%;border-radius:6px;object-fit:cover;display:block;margin:0 auto 8px">';
+      mostraToast('✅ Foto caricata');
+    } catch(err) { alert('Errore: ' + err.message); }
+  };
+  window._tastingUploadPostProd = async (event) => {
+    const file = event.target.files[0]; if (!file) return;
+    try {
+      const url = await uploadTastingMedia(file, 'produttori');
+      document.getElementById('p-foto-prod').value = url;
+      const prev = document.getElementById('upload-preview-post-prod');
+      if (prev) prev.outerHTML = '<img id="upload-preview-post-prod" src="' + url + '" style="max-height:80px;max-width:100%;border-radius:6px;object-fit:contain;display:block;margin:0 auto 8px">';
+      mostraToast('✅ Foto produttore caricata');
+    } catch(err) { alert('Errore: ' + err.message); }
+  };
 
   window._tastingSalvaPostazione = async (id) => {
     const payload = {
@@ -1107,9 +1213,15 @@ async function apriFormFoto(fotoId) {
       </div>
       <div style="display:grid;gap:14px">
         <div>
-          <label style="font-size:12px;color:#666;font-weight:500">URL foto *</label>
-          <input id="f-url" value="${f.url || ''}" placeholder="https://..."
-            style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box">
+          <label style="font-size:12px;color:#666;font-weight:500">Foto *</label>
+          <div id="upload-foto-html"></div>
+          <input id="f-url" type="hidden" value="${f.url || ''}">
+          <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+            <span style="font-size:11px;color:#aaa">oppure URL diretto:</span>
+            <input id="f-url-text" value="${f.url || ''}" placeholder="https://..."
+              oninput="document.getElementById('f-url').value=this.value"
+              style="flex:1;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:13px">
+          </div>
         </div>
         <div>
           <label style="font-size:12px;color:#666;font-weight:500">Tipo</label>
@@ -1154,6 +1266,25 @@ async function apriFormFoto(fotoId) {
       </div>
     </div>`;
   document.body.appendChild(overlay);
+
+  // Init upload box foto
+  const uploadFotoEl = document.getElementById('upload-foto-html');
+  if (uploadFotoEl) uploadFotoEl.innerHTML = renderUploadBox('foto-gallery', 'Carica foto', f.url || '', 'window._tastingUploadFotoGallery(event)', '#B45309');
+  window._tastingUploadFotoGallery = async (event) => {
+    const file = event.target.files[0]; if (!file) return;
+    const box = document.getElementById('upload-box-foto-gallery');
+    if (box) box.style.opacity = '0.5';
+    try {
+      const url = await uploadTastingMedia(file, 'galleria');
+      document.getElementById('f-url').value = url;
+      const urlText = document.getElementById('f-url-text');
+      if (urlText) urlText.value = url;
+      const prev = document.getElementById('upload-preview-foto-gallery');
+      if (prev) { prev.outerHTML = '<img id="upload-preview-foto-gallery" src="' + url + '" style="max-height:80px;max-width:100%;border-radius:6px;object-fit:cover;display:block;margin:0 auto 8px">'; }
+      if (box) { box.style.opacity = '1'; box.style.borderColor = '#B45309'; box.style.background = '#B4530908'; }
+      mostraToast('✅ Foto caricata');
+    } catch(err) { alert('Errore upload: ' + err.message); if (box) box.style.opacity = '1'; }
+  };
 
   window._tastingSalvaFoto = async (id) => {
     const payload = {
@@ -1347,6 +1478,7 @@ async function salvaEvento() {
     descrizione: document.getElementById('ev-descrizione')?.value.trim() || null,
     storia: document.getElementById('ev-storia')?.value.trim() || null,
     immagine_url: document.getElementById('ev-immagine')?.value.trim() || null,
+    logo_url: document.getElementById('ev-logo')?.value.trim() || null,
     video_url: document.getElementById('ev-video')?.value.trim() || null,
     meta_descrizione: document.getElementById('ev-meta')?.value.trim() || null,
   };
