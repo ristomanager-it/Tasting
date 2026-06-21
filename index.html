@@ -186,16 +186,26 @@ async function init() {
 
 async function onLogin(user) {
   currentUser = user;
-  const { data: dip } = await window.supabase
+
+  // Qualsiasi azienda Ristoflow può usare Tasting —
+  // ristoranti per serate, hotel per degustazioni, comitati standalone
+  const { data: dip, error } = await window.supabase
     .from('dipendenti')
     .select('id, user_id, azienda_id, nome, ruolo, attivo')
     .eq('user_id', user.id)
     .single();
 
-  if (!dip) {
-    mostraLogin('Utente non autorizzato su Tasting');
+  if (error || !dip) {
+    mostraLogin('Utente non trovato. Contatta il tuo amministratore.');
     return;
   }
+
+  if (dip.attivo === false) {
+    mostraLogin('Account disattivato. Contatta il tuo amministratore.');
+    await window.supabase.auth.signOut();
+    return;
+  }
+
   currentDipendente = dip;
   mostraApp();
   caricaMeteo();
