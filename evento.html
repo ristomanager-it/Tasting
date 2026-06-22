@@ -216,6 +216,7 @@
 
   const params = new URLSearchParams(window.location.search);
   const slug = params.get('s');
+  const refToken = params.get('ref') || null;
   const root = document.getElementById('root');
 
   let evento = null, azienda = null;
@@ -635,6 +636,7 @@
         token_gruppo: tokenGruppo,
         stato: 'in_attesa',
         metodo_pagamento: 'stripe',
+        ref_token: refToken,
       }).select('id, token_gruppo').single();
 
       if (ordErr) throw ordErr;
