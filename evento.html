@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tasting — Evento</title>
+  <meta id="meta-desc" name="description" content="">
+  <link rel="icon" href="logo tasting.png" type="image/png">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --v: #7C3AED; --a: #B45309; --t: #0D9488;
+      --v-light: #F5F3FF; --a-light: #FEF3C7; --t-light: #E6FAF7;
+      --radius: 16px;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--v-light); color: #111827; }
+
+    /* HERO */
+    .hero { position: relative; height: 280px; background: linear-gradient(135deg, var(--v), #9333ea); overflow: hidden; }
+    .hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .hero-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 40%, rgba(0,0,0,.55)); }
+    .hero-content { position: absolute; bottom: 0; left: 0; right: 0; padding: 20px 16px; }
+    .hero-tipo { display: inline-flex; align-items: center; gap: 6px; background: var(--a); color: #fff; border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 700; margin-bottom: 8px; }
+    .hero-title { font-size: 24px; font-weight: 800; color: #fff; line-height: 1.2; margin-bottom: 4px; }
+    .hero-sub { font-size: 14px; color: rgba(255,255,255,.85); font-weight: 500; }
+    .meteo-badge { position: absolute; top: 14px; right: 14px; background: rgba(255,255,255,.92); border-radius: 20px; padding: 5px 12px; font-size: 13px; font-weight: 700; display: none; }
+
+    /* SEZIONI */
+    .section { background: #fff; margin: 8px 0; padding: 20px 16px; }
+    .section:first-of-type { margin-top: 0; }
+    .section-title { font-size: 14px; font-weight: 800; color: #374151; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+
+    /* INFO STRIP */
+    .info-strip { background: #fff; padding: 14px 16px; display: flex; gap: 20px; overflow-x: auto; border-bottom: 1px solid #f3f4f6; }
+    .info-item { display: flex; flex-direction: column; align-items: center; gap: 3px; flex-shrink: 0; }
+    .info-item .icon { font-size: 20px; }
+    .info-item .label { font-size: 10px; color: #9ca3af; font-weight: 700; text-transform: uppercase; }
+    .info-item .value { font-size: 13px; font-weight: 800; color: #111; }
+
+    /* BIGLIETTI */
+    .ticket-card { border: 1.5px solid #e5e7eb; border-radius: var(--radius); padding: 14px; margin-bottom: 10px; cursor: pointer; transition: all .15s; position: relative; }
+    .ticket-card.selected { border-color: var(--v); background: var(--v-light); }
+    .ticket-card.evidenza { border-color: var(--a); }
+    .ticket-badge-top { position: absolute; top: -1px; right: 12px; background: var(--a); color: #fff; border-radius: 0 0 8px 8px; padding: 2px 10px; font-size: 11px; font-weight: 700; }
+    .ticket-nome { font-size: 15px; font-weight: 700; color: #111; }
+    .ticket-desc { font-size: 12px; color: #6b7280; margin-top: 3px; }
+    .ticket-prezzo { font-size: 22px; font-weight: 800; color: var(--v); margin-top: 6px; }
+    .ticket-cons { font-size: 12px; color: var(--a); font-weight: 600; }
+    .ticket-rimasti { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+    .progress-bar { height: 4px; background: #f3f4f6; border-radius: 4px; overflow: hidden; margin-top: 6px; }
+    .progress-fill { height: 100%; border-radius: 4px; transition: width .3s; }
+
+    /* SLOT */
+    .slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 8px; }
+    .slot-item { border: 1.5px solid #e5e7eb; border-radius: 10px; padding: 10px 6px; text-align: center; cursor: pointer; transition: all .15s; }
+    .slot-item.selected { border-color: var(--t); background: var(--t-light); }
+    .slot-item.pieno { opacity: .4; cursor: not-allowed; background: #f9fafb; }
+    .slot-time { font-size: 14px; font-weight: 800; color: #111; }
+    .slot-liberi { font-size: 10px; font-weight: 700; margin-top: 3px; }
+
+    /* POSTAZIONI */
+    .postazione-card { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f3f4f6; }
+    .postazione-card:last-child { border-bottom: none; }
+    .post-img { width: 64px; height: 64px; border-radius: 10px; object-fit: cover; flex-shrink: 0; background: var(--t-light); display: flex; align-items: center; justify-content: center; font-size: 24px; overflow: hidden; }
+    .post-img img { width: 100%; height: 100%; object-fit: cover; }
+    .post-nome { font-size: 14px; font-weight: 700; color: #111; }
+    .post-sub { font-size: 12px; color: var(--t); font-weight: 600; margin-top: 2px; }
+    .post-desc { font-size: 12px; color: #6b7280; margin-top: 4px; line-height: 1.5; }
+    .post-prod { font-size: 11px; color: #9ca3af; margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+
+    /* GALLERIA */
+    .gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; border-radius: 10px; overflow: hidden; }
+    .gallery-item { aspect-ratio: 1; overflow: hidden; cursor: pointer; }
+    .gallery-item img { width: 100%; height: 100%; object-fit: cover; transition: transform .2s; }
+    .gallery-item:hover img { transform: scale(1.05); }
+
+    /* PROGRAMMA */
+    .programma-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
+    .programma-item:last-child { border-bottom: none; }
+    .prog-ora { font-size: 13px; font-weight: 800; color: var(--v); min-width: 48px; }
+    .prog-titolo { font-size: 13px; font-weight: 700; color: #111; }
+    .prog-desc { font-size: 12px; color: #6b7280; margin-top: 2px; }
+
+    /* TERRITORIO */
+    .tab-bar { display: flex; gap: 4px; background: #f3f4f6; border-radius: 10px; padding: 4px; margin-bottom: 14px; overflow-x: auto; }
+    .tab-btn { flex-shrink: 0; padding: 7px 12px; border: none; border-radius: 7px; font-size: 12px; font-weight: 700; cursor: pointer; background: transparent; color: #6b7280; }
+    .tab-btn.active { background: #fff; color: var(--v); box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .terr-item { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
+    .terr-item:last-child { border-bottom: none; }
+    .terr-icon { width: 38px; height: 38px; border-radius: 10px; background: var(--v-light); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+    .terr-nome { font-size: 13px; font-weight: 700; color: #111; }
+    .terr-badge { display: inline-flex; align-items: center; gap: 4px; background: var(--v-light); color: var(--v); border-radius: 20px; padding: 2px 8px; font-size: 11px; font-weight: 600; margin: 2px 2px 0 0; }
+    .terr-desc { font-size: 12px; color: #6b7280; margin-top: 3px; }
+
+    /* CTA ACQUISTO */
+    .cta-sticky { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid #e5e7eb; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); z-index: 100; display: flex; gap: 10px; align-items: center; box-shadow: 0 -4px 20px rgba(0,0,0,.08); }
+    .cta-info { flex: 1; }
+    .cta-prezzo { font-size: 18px; font-weight: 800; color: var(--v); }
+    .cta-label { font-size: 11px; color: #9ca3af; font-weight: 600; }
+    .cta-btn { background: var(--v); color: #fff; border: none; border-radius: 12px; padding: 14px 24px; font-size: 15px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+    .cta-btn:disabled { background: #d1d5db; cursor: not-allowed; }
+
+    /* CHECKOUT MODAL */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 200; display: none; align-items: flex-end; }
+    .modal-overlay.open { display: flex; }
+    .modal-box { background: #fff; border-radius: 24px 24px 0 0; padding: 20px 16px calc(24px + env(safe-area-inset-bottom)); width: 100%; max-height: 90vh; overflow-y: auto; }
+    .modal-handle { width: 40px; height: 4px; background: #d1d5db; border-radius: 4px; margin: 0 auto 16px; }
+    .modal-title { font-size: 18px; font-weight: 800; color: #111; margin-bottom: 16px; }
+    .form-field { margin-bottom: 14px; }
+    .form-label { font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 5px; display: block; }
+    .form-input { width: 100%; height: 46px; border: 1.5px solid #e5e7eb; border-radius: 12px; padding: 0 14px; font-size: 15px; color: #111; background: #f9fafb; }
+    .form-input:focus { outline: none; border-color: var(--v); background: #fff; }
+    .riepilogo-box { background: var(--v-light); border-radius: 12px; padding: 14px; margin-bottom: 16px; }
+    .ries-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+    .ries-row:last-child { margin-bottom: 0; font-weight: 800; font-size: 15px; border-top: 1px solid #ddd6fe; padding-top: 8px; margin-top: 6px; }
+    .pay-btn { width: 100%; height: 52px; border: none; border-radius: 14px; font-size: 16px; font-weight: 800; cursor: pointer; background: var(--v); color: #fff; margin-bottom: 8px; }
+    .pay-btn:disabled { background: #d1d5db; cursor: not-allowed; }
+
+    /* LIGHTBOX */
+    .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.92); z-index: 300; display: none; align-items: center; justify-content: center; }
+    .lightbox.open { display: flex; }
+    .lightbox img { max-width: 95vw; max-height: 90vh; border-radius: 10px; object-fit: contain; }
+    .lb-close { position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,.2); border: none; color: #fff; width: 40px; height: 40px; border-radius: 50%; font-size: 18px; cursor: pointer; }
+
+    /* LOADER / ERROR */
+    .page-loader { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; gap: 14px; }
+    .spinner { width: 44px; height: 44px; border: 4px solid var(--v-light); border-top-color: var(--v); border-radius: 50%; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; text-align: center; padding: 32px 20px; gap: 12px; }
+
+    /* COUNTDOWN */
+    .countdown { display: flex; gap: 8px; justify-content: center; margin: 14px 0; }
+    .cd-unit { background: var(--v); border-radius: 12px; padding: 12px 16px; text-align: center; flex: 1; max-width: 80px; }
+    .cd-num { font-size: 26px; font-weight: 800; color: #fff; }
+    .cd-lab { font-size: 10px; color: rgba(255,255,255,.7); font-weight: 700; text-transform: uppercase; margin-top: 2px; }
+
+    .footer { text-align: center; padding: 28px 20px 80px; font-size: 12px; color: #9ca3af; }
+    .footer a { color: var(--v); text-decoration: none; }
+
+    @media (min-width: 480px) {
+      body { display: flex; flex-direction: column; align-items: center; }
+      .hero, .info-strip, .section, .cta-sticky, .footer { max-width: 480px; width: 100%; }
+      .modal-box { max-width: 480px; margin: 0 auto; border-radius: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="root">
+  <div class="page-loader">
+    <div class="spinner"></div>
+    <div style="font-size:14px;color:#9ca3af;">Caricamento evento...</div>
+  </div>
+</div>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox">
+  <button class="lb-close" id="lb-close">✕</button>
+  <img id="lb-img" src="" alt="">
+</div>
+
+<!-- MODAL CHECKOUT -->
+<div class="modal-overlay" id="modal-checkout">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🎫 Acquista biglietto</div>
+
+    <!-- Riepilogo -->
+    <div class="riepilogo-box" id="checkout-riepilogo"></div>
+
+    <!-- Form dati -->
+    <div class="form-field">
+      <label class="form-label">Nome *</label>
+      <input class="form-input" id="ck-nome" placeholder="Mario" autocomplete="given-name">
+    </div>
+    <div class="form-field">
+      <label class="form-label">Cognome *</label>
+      <input class="form-input" id="ck-cognome" placeholder="Rossi" autocomplete="family-name">
+    </div>
+    <div class="form-field">
+      <label class="form-label">Email *</label>
+      <input class="form-input" id="ck-email" type="email" placeholder="mario@email.it" autocomplete="email">
+    </div>
+    <div class="form-field">
+      <label class="form-label">Telefono (per QR su WhatsApp)</label>
+      <input class="form-input" id="ck-tel" type="tel" placeholder="+39 333 1234567" autocomplete="tel">
+    </div>
+
+    <div id="stripe-container" style="margin-bottom:16px;"></div>
+
+    <button class="pay-btn" id="btn-paga">💳 Procedi al pagamento</button>
+    <button style="width:100%;padding:12px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;font-size:14px;cursor:pointer;" onclick="chiudiCheckout()">Annulla</button>
+
+    <div id="ck-error" style="display:none;background:#fee2e2;color:#991b1b;border-radius:10px;padding:12px;font-size:13px;margin-top:10px;"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function() {
+  const SUPA_URL = 'https://cuhcscpvhypoaplcmtjk.supabase.co';
+  const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1aGNzY3B2aHlwb2FwbGNtdGprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4MjY4MjgsImV4cCI6MjA3OTQwMjgyOH0.q9zAs0oh8F1-whtORHBIORF5jIn1NTS3LvSMWleP0a0';
+  const supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+
+  const params = new URLSearchParams(window.location.search);
+  const slug = params.get('s');
+  const root = document.getElementById('root');
+
+  let evento = null, azienda = null;
+  let selectedCat = null, selectedSlot = null;
+  let stripeInstance = null, stripeElements = null;
+
+  if (!slug) { showError('Evento non trovato', 'Il link non è valido.'); return; }
+
+  init();
+
+  // ═══════════════════════════════════════════════
+  // INIT
+  // ═══════════════════════════════════════════════
+  async function init() {
+    const { data: ev, error } = await supa
+      .from('ticket_eventi')
+      .select('*, aziende(nome, logo_url, colore_brand, telefono, indirizzo, citta, stripe_publishable_key, stripe_attivo)')
+      .eq('slug', slug)
+      .eq('stato', 'pubblicato')
+      .maybeSingle();
+
+    if (error || !ev) { showError('Evento non trovato', 'L\'evento non è disponibile o non è ancora pubblicato.'); return; }
+    evento = ev;
+    azienda = ev.aziende || {};
+
+    // Brand color
+    if (azienda.colore_brand) {
+      document.documentElement.style.setProperty('--v', azienda.colore_brand);
+    }
+
+    // Meta
+    document.title = ev.nome + ' — Tasting';
+    document.getElementById('meta-desc').content = ev.descrizione || ev.nome;
+
+    // Carica dati correlati
+    const [catsRes, postsRes, slotsRes, fotoRes] = await Promise.all([
+      supa.from('ticket_categorie_prezzo').select('*').eq('evento_id', ev.id).eq('attiva', true).order('ordine'),
+      supa.from('ticket_postazioni').select('*').eq('evento_id', ev.id).eq('attiva', true).order('ordine'),
+      supa.from('ticket_slot').select('*, ticket_slot_categorie(*)').eq('evento_id', ev.id).eq('attiva', true).order('data').order('ora_inizio'),
+      supa.from('ticket_foto').select('*').eq('evento_id', ev.id).order('ordine'),
+    ]);
+
+    render(ev, azienda, catsRes.data || [], postsRes.data || [], slotsRes.data || [], fotoRes.data || []);
+    caricaMeteo();
+  }
+
+  // ═══════════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════════
+  function render(ev, az, cats, posts, slots, foto) {
+    const t = (typeof ev.territorio === 'string' ? tryJSON(ev.territorio) : ev.territorio) || {};
+    const prog = Array.isArray(ev.programma) ? ev.programma : (tryJSON(ev.programma) || []);
+    const galleria = foto.filter(f => f.url);
+    const dataI = formatData(ev.data_inizio);
+    const dataF = formatData(ev.data_fine);
+    const oraI = formatOra(ev.data_inizio);
+    const isConsumazione = ev.tipo === 'consumazione';
+
+    let html = '';
+
+    // HERO
+    html += '<div class="hero">';
+    if (ev.immagine_url) html += '<img src="' + esc(ev.immagine_url) + '" alt="' + esc(ev.nome) + '">';
+    else html += '<div style="height:100%;background:linear-gradient(135deg,var(--v),#9333ea);"></div>';
+    html += '<div class="hero-overlay"></div>';
+    html += '<div class="meteo-badge" id="meteo-badge"></div>';
+    html += '<div class="hero-content">';
+    html += '<div class="hero-tipo">' + (isConsumazione ? '🍕 A consumazione' : '🎫 Ingresso') + '</div>';
+    html += '<div class="hero-title">' + esc(ev.nome) + '</div>';
+    if (ev.sottotitolo) html += '<div class="hero-sub">' + esc(ev.sottotitolo) + '</div>';
+    html += '</div></div>';
+
+    // INFO STRIP
+    html += '<div class="info-strip">';
+    html += '<div class="info-item"><span class="icon">📅</span><span class="label">Data</span><span class="value">' + dataI + '</span></div>';
+    if (dataF !== dataI) html += '<div class="info-item"><span class="icon">📆</span><span class="label">Fine</span><span class="value">' + dataF + '</span></div>';
+    html += '<div class="info-item"><span class="icon">🕐</span><span class="label">Ora</span><span class="value">' + oraI + '</span></div>';
+    if (ev.luogo) html += '<div class="info-item"><span class="icon">📍</span><span class="label">Dove</span><span class="value">' + esc(ev.luogo) + '</span></div>';
+    if (ev.capacita_totale) html += '<div class="info-item"><span class="icon">👥</span><span class="label">Posti</span><span class="value">' + ev.capacita_totale + '</span></div>';
+    html += '</div>';
+
+    // COUNTDOWN
+    const targetDate = new Date(ev.data_inizio);
+    if (targetDate > new Date()) {
+      html += '<div class="section" id="countdown-section">';
+      html += '<div class="section-title">⏱️ Manca</div>';
+      html += '<div class="countdown"><div class="cd-unit"><div class="cd-num" id="cd-gg">--</div><div class="cd-lab">giorni</div></div><div class="cd-unit"><div class="cd-num" id="cd-hh">--</div><div class="cd-lab">ore</div></div><div class="cd-unit"><div class="cd-num" id="cd-mm">--</div><div class="cd-lab">min</div></div><div class="cd-unit"><div class="cd-num" id="cd-ss">--</div><div class="cd-lab">sec</div></div></div>';
+      html += '</div>';
+    }
+
+    // STORIA / DESCRIZIONE
+    if (ev.storia || ev.descrizione) {
+      html += '<div class="section">';
+      html += '<div class="section-title">📖 L\'evento</div>';
+      if (ev.storia) html += '<p style="font-size:14px;line-height:1.7;color:#374151;">' + esc(ev.storia) + '</p>';
+      else html += '<p style="font-size:14px;line-height:1.7;color:#374151;">' + esc(ev.descrizione) + '</p>';
+      html += '</div>';
+    }
+
+    // BIGLIETTI
+    html += '<div class="section" id="sezione-biglietti">';
+    html += '<div class="section-title">🎫 Scegli il tuo biglietto</div>';
+    if (!cats.length) {
+      html += '<div style="text-align:center;padding:20px;color:#9ca3af;">Nessuna categoria disponibile al momento.</div>';
+    } else {
+      cats.forEach(c => {
+        const venduti = c.quantita_venduta || 0;
+        const disp = c.quantita_disponibile || 0;
+        const rimasti = disp - venduti;
+        const esaurito = rimasti <= 0;
+        const perc = disp > 0 ? Math.round((venduti / disp) * 100) : 0;
+        const colBar = perc >= 90 ? '#e53e3e' : perc >= 70 ? '#f59e0b' : '#0D9488';
+
+        html += '<div class="ticket-card' + (c.in_evidenza ? ' evidenza' : '') + '" data-cat-id="' + c.id + '" onclick="selezionaCat(\'' + c.id + '\')">';
+        if (c.in_evidenza) html += '<div class="ticket-badge-top">⭐ ' + esc(c.icona || 'Più scelto') + '</div>';
+        html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
+        html += '<div style="flex:1;">';
+        html += '<div class="ticket-nome">' + esc(c.nome) + '</div>';
+        if (c.descrizione) html += '<div class="ticket-desc">' + esc(c.descrizione) + '</div>';
+        if (c.consumazioni_incluse) html += '<div class="ticket-cons">🍽️ ' + c.consumazioni_incluse + ' consumazioni incluse</div>';
+        html += '</div>';
+        html += '<div style="text-align:right;">';
+        html += '<div class="ticket-prezzo">€' + parseFloat(c.prezzo).toFixed(2) + '</div>';
+        html += '</div></div>';
+        html += '<div class="ticket-rimasti">' + (esaurito ? '❌ Esaurito' : rimasti <= 10 ? '⚠️ Ultimi ' + rimasti + ' posti' : rimasti + ' posti rimasti') + '</div>';
+        if (disp > 0) {
+          html += '<div class="progress-bar"><div class="progress-fill" style="width:' + perc + '%;background:' + colBar + ';"></div></div>';
+        }
+        if (esaurito) html += '<div style="position:absolute;inset:0;background:rgba(255,255,255,.6);border-radius:var(--radius);"></div>';
+        html += '</div>';
+      });
+    }
+    html += '</div>';
+
+    // SLOT ORARI (se presenti)
+    if (slots.length > 0) {
+      html += '<div class="section" id="sezione-slot">';
+      html += '<div class="section-title">⏱️ Scegli l\'orario di ingresso</div>';
+      html += '<div class="slot-grid" id="slot-grid">';
+      slots.forEach(s => {
+        const venduti = s.venduti_totale || 0;
+        const cap = s.capacita_totale || 0;
+        const rimasti = cap - venduti;
+        const pieno = rimasti <= 0;
+        const colLib = rimasti <= 5 ? '#e53e3e' : '#0D9488';
+        html += '<div class="slot-item' + (pieno ? ' pieno' : '') + '" data-slot-id="' + s.id + '" onclick="' + (pieno ? '' : 'selezionaSlot(\'' + s.id + '\')') + '">';
+        html += '<div class="slot-time">' + s.ora_inizio.slice(0,5) + '</div>';
+        html += '<div class="slot-liberi" style="color:' + (pieno ? '#e53e3e' : colLib) + '">' + (pieno ? 'PIENO' : rimasti + ' lib.') + '</div>';
+        html += '</div>';
+      });
+      html += '</div></div>';
+    }
+
+    // POSTAZIONI (solo tipo consumazione)
+    if (isConsumazione && posts.length > 0) {
+      html += '<div class="section">';
+      html += '<div class="section-title">🗺️ Il percorso delle postazioni</div>';
+      posts.forEach((p, i) => {
+        html += '<div class="postazione-card">';
+        html += '<div class="post-img">';
+        if (p.immagine_url) html += '<img src="' + esc(p.immagine_url) + '" alt="' + esc(p.nome) + '">';
+        else html += '<span>' + (p.colore ? '🍽️' : '🍕') + '</span>';
+        html += '</div>';
+        html += '<div style="flex:1;">';
+        html += '<div class="post-nome">' + esc(p.nome) + '</div>';
+        if (p.sottotitolo) html += '<div class="post-sub">' + esc(p.sottotitolo) + '</div>';
+        if (p.descrizione) html += '<div class="post-desc">' + esc(p.descrizione.substring(0, 100)) + (p.descrizione.length > 100 ? '...' : '') + '</div>';
+        if (p.produttore) html += '<div class="post-prod">👤 ' + esc(p.produttore) + '</div>';
+        if (p.max_per_biglietto) html += '<div style="font-size:11px;color:#9ca3af;margin-top:3px;">Max ' + p.max_per_biglietto + ' per biglietto</div>';
+        html += '</div></div>';
+      });
+      html += '</div>';
+    }
+
+    // PROGRAMMA
+    if (prog.length > 0) {
+      html += '<div class="section">';
+      html += '<div class="section-title">📅 Programma</div>';
+      prog.forEach(p => {
+        html += '<div class="programma-item">';
+        html += '<div class="prog-ora">' + esc(p.ora || '') + '</div>';
+        html += '<div><div class="prog-titolo">' + esc(p.titolo || '') + '</div>';
+        if (p.descrizione) html += '<div class="prog-desc">' + esc(p.descrizione) + '</div>';
+        html += '</div></div>';
+      });
+      html += '</div>';
+    }
+
+    // TERRITORIO
+    const hasTerr = t.attrazioni?.length || t.come_arrivare?.auto || t.parcheggio?.descrizione || t.ristoranti?.length;
+    if (hasTerr) {
+      html += buildTerritorio(t);
+    }
+
+    // GALLERIA
+    if (galleria.length > 0) {
+      html += '<div class="section">';
+      html += '<div class="section-title">📸 Galleria</div>';
+      html += '<div class="gallery-grid">';
+      galleria.slice(0, 9).forEach((f, i) => {
+        html += '<div class="gallery-item" data-lb="' + esc(f.url) + '">';
+        html += '<img src="' + esc(f.url) + '" alt="' + esc(f.didascalia || '') + '" loading="lazy">';
+        html += '</div>';
+      });
+      html += '</div>';
+      if (galleria[0]?.copyright) html += '<div style="font-size:11px;color:#9ca3af;margin-top:6px;">© ' + esc(galleria[0].copyright) + '</div>';
+      html += '</div>';
+    }
+
+    // INFO ORGANIZZATORE
+    if (ev.organizzatore || az.telefono) {
+      html += '<div class="section">';
+      html += '<div class="section-title">📞 Organizzatore</div>';
+      if (ev.organizzatore) html += '<div style="font-size:14px;font-weight:700;color:#111;margin-bottom:8px;">' + esc(ev.organizzatore) + '</div>';
+      if (az.telefono) {
+        html += '<a href="tel:' + esc(az.telefono) + '" style="display:flex;align-items:center;gap:10px;padding:10px;background:#f9fafb;border-radius:10px;text-decoration:none;color:#111;">';
+        html += '<span style="font-size:20px;">📞</span><div><div style="font-size:13px;font-weight:700;">' + esc(az.telefono) + '</div><div style="font-size:11px;color:#9ca3af;">Chiama per info</div></div></a>';
+      }
+      if (az.telefono) {
+        const tel = az.telefono.replace(/\D/g, '');
+        const waText = encodeURIComponent('Ciao! Vorrei info sull\'evento ' + ev.nome);
+        html += '<a href="https://wa.me/' + tel + '?text=' + waText + '" target="_blank" style="display:flex;align-items:center;gap:10px;padding:10px;background:#f0fdf4;border-radius:10px;text-decoration:none;color:#111;margin-top:8px;">';
+        html += '<span style="font-size:20px;">💬</span><div><div style="font-size:13px;font-weight:700;">Scrivi su WhatsApp</div><div style="font-size:11px;color:#9ca3af;">Risposta rapida</div></div></a>';
+      }
+      html += '</div>';
+    }
+
+    // RISTOFLOWBOOK
+    html += '<div class="section" style="text-align:center;">';
+    html += '<a href="https://social.ristoflow-ai.com" target="_blank" style="display:inline-flex;align-items:center;gap:8px;background:#f97316;color:#fff;border-radius:12px;padding:12px 20px;text-decoration:none;font-size:14px;font-weight:700;">🍽️ Scopri altri locali della zona</a>';
+    html += '</div>';
+
+    html += '<div class="footer">Powered by <a href="https://ristoflow-ai.com" target="_blank">Ristoflow</a> · <a href="https://tasting.ristoflow-ai.com" target="_blank">Tasting</a></div>';
+
+    // CTA STICKY
+    html += '<div class="cta-sticky"><div class="cta-info"><div class="cta-label">A partire da</div><div class="cta-prezzo" id="cta-prezzo">' + (cats.length ? '€' + Math.min(...cats.map(c => parseFloat(c.prezzo))).toFixed(2) : '--') + '</div></div><button class="cta-btn" id="cta-acquista" onclick="apriCheckout()" ' + (!cats.length ? 'disabled' : '') + '>🎫 Acquista biglietto</button></div>';
+
+    root.innerHTML = html;
+
+    // Countdown
+    if (targetDate > new Date()) startCountdown(targetDate);
+
+    // Lightbox
+    document.querySelectorAll('[data-lb]').forEach(el => {
+      el.onclick = () => { document.getElementById('lb-img').src = el.dataset.lb; document.getElementById('lightbox').classList.add('open'); };
+    });
+    document.getElementById('lb-close').onclick = () => document.getElementById('lightbox').classList.remove('open');
+    document.getElementById('lightbox').onclick = e => { if (e.target.id === 'lightbox') e.target.classList.remove('open'); };
+
+    // Tabs territorio
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.onclick = () => {
+        const sec = btn.closest('.section');
+        sec.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        sec.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        const panel = sec.querySelector('#' + btn.dataset.panel);
+        if (panel) panel.classList.add('active');
+      };
+    });
+
+    window._cats = cats;
+    window._slots = slots;
+  }
+
+  // ═══════════════════════════════════════════════
+  // SELEZIONE CATEGORIA
+  // ═══════════════════════════════════════════════
+  window.selezionaCat = function(catId) {
+    selectedCat = (window._cats || []).find(c => c.id === catId);
+    if (!selectedCat) return;
+    document.querySelectorAll('.ticket-card').forEach(el => {
+      el.classList.toggle('selected', el.dataset.catId === catId);
+    });
+    const ctaPrezzo = document.getElementById('cta-prezzo');
+    if (ctaPrezzo) ctaPrezzo.textContent = '€' + parseFloat(selectedCat.prezzo).toFixed(2);
+  };
+
+  // ═══════════════════════════════════════════════
+  // SELEZIONE SLOT
+  // ═══════════════════════════════════════════════
+  window.selezionaSlot = function(slotId) {
+    selectedSlot = (window._slots || []).find(s => s.id === slotId);
+    document.querySelectorAll('.slot-item').forEach(el => {
+      el.classList.toggle('selected', el.dataset.slotId === slotId);
+    });
+  };
+
+  // ═══════════════════════════════════════════════
+  // CHECKOUT
+  // ═══════════════════════════════════════════════
+  window.apriCheckout = function() {
+    const cats = window._cats || [];
+    const slots = window._slots || [];
+
+    if (!selectedCat && cats.length) {
+      // Se c'è una sola categoria selezionala automaticamente
+      if (cats.length === 1) {
+        selezionaCat(cats[0].id);
+      } else {
+        alert('Seleziona prima una categoria di biglietto');
+        document.getElementById('sezione-biglietti').scrollIntoView({ behavior: 'smooth' });
+        return;
+      }
+    }
+    if (slots.length > 0 && !selectedSlot) {
+      alert('Seleziona l\'orario di ingresso');
+      document.getElementById('sezione-slot')?.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+
+    // Riepilogo
+    const ries = document.getElementById('checkout-riepilogo');
+    ries.innerHTML = '<div class="ries-row"><span>' + esc(selectedCat.nome) + '</span><span>€' + parseFloat(selectedCat.prezzo).toFixed(2) + '</span></div>'
+      + (selectedSlot ? '<div class="ries-row"><span>⏱️ Orario</span><span>' + selectedSlot.ora_inizio.slice(0,5) + '</span></div>' : '')
+      + (selectedCat.consumazioni_incluse ? '<div class="ries-row"><span>🍽️ Consumazioni</span><span>' + selectedCat.consumazioni_incluse + '</span></div>' : '')
+      + '<div class="ries-row"><span>Totale</span><span>€' + parseFloat(selectedCat.prezzo).toFixed(2) + '</span></div>';
+
+    document.getElementById('modal-checkout').classList.add('open');
+    document.body.style.overflow = 'hidden';
+
+    // Carica Stripe se disponibile
+    if (azienda.stripe_publishable_key && azienda.stripe_attivo) {
+      caricaStripe(azienda.stripe_publishable_key, selectedCat.prezzo);
+    } else {
+      document.getElementById('stripe-container').innerHTML =
+        '<div style="background:#fff7ed;border-radius:10px;padding:12px;font-size:13px;color:#c2410c;margin-bottom:12px;">⚠️ Pagamento online non disponibile — contatta l\'organizzatore per acquistare il biglietto.</div>';
+      document.getElementById('btn-paga').style.display = 'none';
+    }
+  };
+
+  window.chiudiCheckout = function() {
+    document.getElementById('modal-checkout').classList.remove('open');
+    document.body.style.overflow = '';
+  };
+
+  async function caricaStripe(pubKey, importo) {
+    const cont = document.getElementById('stripe-container');
+    cont.innerHTML = '<div style="font-size:13px;color:#9ca3af;">Caricamento pagamento...</div>';
+
+    if (!window.Stripe) {
+      const s = document.createElement('script');
+      s.src = 'https://js.stripe.com/v3/';
+      s.onload = () => initStripeElements(pubKey, importo);
+      document.head.appendChild(s);
+    } else {
+      initStripeElements(pubKey, importo);
+    }
+  }
+
+  function initStripeElements(pubKey, importo) {
+    stripeInstance = window.Stripe(pubKey);
+    const importoCent = Math.round(parseFloat(importo) * 100);
+    stripeElements = stripeInstance.elements({
+      mode: 'payment',
+      amount: importoCent,
+      currency: 'eur',
+    });
+    const payEl = stripeElements.create('payment', { layout: 'tabs' });
+    document.getElementById('stripe-container').innerHTML = '';
+    payEl.mount('#stripe-container');
+  }
+
+  document.getElementById('btn-paga').onclick = async () => {
+    const nome = document.getElementById('ck-nome').value.trim();
+    const cognome = document.getElementById('ck-cognome').value.trim();
+    const email = document.getElementById('ck-email').value.trim();
+    const tel = document.getElementById('ck-tel').value.trim();
+
+    if (!nome || !cognome || !email) {
+      mostraErrCk('Compila nome, cognome ed email');
+      return;
+    }
+
+    const btn = document.getElementById('btn-paga');
+    btn.disabled = true;
+    btn.textContent = 'Elaborazione...';
+
+    try {
+      // 1. Crea ordine su Supabase
+      const { data: ordine, error: ordErr } = await supa.from('ticket_ordini').insert({
+        evento_id: evento.id,
+        azienda_id: evento.azienda_id,
+        categoria_id: selectedCat.id,
+        nome_acquirente: nome + ' ' + cognome,
+        email: email,
+        telefono: tel || null,
+        totale: parseFloat(selectedCat.prezzo),
+        stato: 'in_attesa',
+        metodo_pagamento: 'stripe',
+      }).select('id').single();
+
+      if (ordErr) throw ordErr;
+
+      if (stripeInstance && stripeElements) {
+        // 2. Conferma pagamento Stripe
+        const { error: strErr } = await stripeInstance.confirmPayment({
+          elements: stripeElements,
+          confirmParams: {
+            return_url: window.location.href + '&ordine=' + ordine.id + '&success=1',
+            payment_method_data: {
+              billing_details: { name: nome + ' ' + cognome, email: email }
+            }
+          },
+        });
+        if (strErr) throw strErr;
+      } else {
+        // Pagamento non disponibile — crea biglietto gratuito/manuale
+        await supa.from('ticket_biglietti').insert({
+          ordine_id: ordine.id,
+          evento_id: evento.id,
+          azienda_id: evento.azienda_id,
+          categoria_id: selectedCat.id,
+          slot_id: selectedSlot?.id || null,
+          nome_partecipante: nome + ' ' + cognome,
+          consumazioni_totali: selectedCat.consumazioni_incluse || null,
+          stato: 'non_attivato',
+        });
+        await supa.from('ticket_ordini').update({ stato: 'pagato' }).eq('id', ordine.id);
+        chiudiCheckout();
+        mostraSuccesso(nome);
+      }
+    } catch (err) {
+      mostraErrCk(err.message || 'Errore nel pagamento. Riprova.');
+      btn.disabled = false;
+      btn.textContent = '💳 Procedi al pagamento';
+    }
+  };
+
+  function mostraErrCk(msg) {
+    const el = document.getElementById('ck-error');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  function mostraSuccesso(nome) {
+    root.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:32px 20px;gap:16px;">'
+      + '<div style="font-size:64px;">🎉</div>'
+      + '<div style="font-size:24px;font-weight:800;color:var(--v);">Acquisto completato!</div>'
+      + '<div style="font-size:15px;color:#6b7280;">Grazie ' + esc(nome) + '! Il tuo biglietto è stato inviato via email.</div>'
+      + '<div style="font-size:13px;color:#9ca3af;">Controlla la casella email per il QR code.</div>'
+      + '</div>';
+  }
+
+  // ═══════════════════════════════════════════════
+  // TERRITORIO
+  // ═══════════════════════════════════════════════
+  function buildTerritorio(t) {
+    const arr = t.come_arrivare || {};
+    const park = t.parcheggio || {};
+    const tabs = [];
+    if (t.attrazioni?.length) tabs.push({ id: 'attr', label: '🏛️ Attrazioni' });
+    if (arr.auto || arr.treno || arr.aereo) tabs.push({ id: 'come', label: '🚗 Arrivare' });
+    if (park.descrizione) tabs.push({ id: 'park', label: '🅿️ Parcheggio' });
+    if (t.ristoranti?.length) tabs.push({ id: 'rist', label: '🍽️ Ristoranti' });
+    if (!tabs.length) return '';
+
+    let html = '<div class="section">';
+    html += '<div class="section-title">🌍 Territorio e dintorni</div>';
+    if (t.descrizione) html += '<p style="font-size:13px;color:#6b7280;line-height:1.6;margin-bottom:12px;">' + esc(t.descrizione) + '</p>';
+
+    if (tabs.length > 1) {
+      html += '<div class="tab-bar">' + tabs.map((tb, i) =>
+        '<button class="tab-btn' + (i===0?' active':'') + '" data-panel="terr-' + tb.id + '">' + tb.label + '</button>'
+      ).join('') + '</div>';
+    }
+
+    // Attrazioni
+    if (t.attrazioni?.length) {
+      html += '<div id="terr-attr" class="tab-panel active">';
+      t.attrazioni.forEach(a => {
+        html += '<div class="terr-item">';
+        html += '<div class="terr-icon">' + (a.icona || '📍') + '</div>';
+        html += '<div style="flex:1;"><div class="terr-nome">' + esc(a.nome || '') + '</div>';
+        if (a.distanza) html += '<span class="terr-badge">📏 ' + esc(a.distanza) + '</span>';
+        if (a.tempo) html += '<span class="terr-badge">🕐 ' + esc(a.tempo) + '</span>';
+        if (a.descrizione) html += '<div class="terr-desc">' + esc(a.descrizione) + '</div>';
+        if (a.link) html += '<a href="' + esc(a.link) + '" target="_blank" style="font-size:12px;color:var(--v);font-weight:600;display:inline-block;margin-top:4px;">Scopri →</a>';
+        html += '</div></div>';
+      });
+      html += '</div>';
+    }
+
+    // Come arrivare
+    if (arr.auto || arr.treno || arr.aereo || arr.bus) {
+      html += '<div id="terr-come" class="tab-panel">';
+      if (arr.maps_url) html += '<a href="' + esc(arr.maps_url) + '" target="_blank" style="display:flex;align-items:center;gap:8px;background:var(--v);color:#fff;border-radius:10px;padding:10px 14px;text-decoration:none;font-size:13px;font-weight:700;margin-bottom:12px;">🧭 Apri in Google Maps</a>';
+      if (arr.auto) html += '<div class="terr-item"><div class="terr-icon">🚗</div><div><div class="terr-nome">In auto</div><div class="terr-desc">' + esc(arr.auto) + '</div></div></div>';
+      if (arr.treno) html += '<div class="terr-item"><div class="terr-icon">🚂</div><div><div class="terr-nome">In treno</div><div class="terr-desc">' + esc(arr.treno) + '</div></div></div>';
+      if (arr.aereo) html += '<div class="terr-item"><div class="terr-icon">✈️</div><div><div class="terr-nome">In aereo</div><div class="terr-desc">' + esc(arr.aereo) + '</div></div></div>';
+      if (arr.bus) html += '<div class="terr-item"><div class="terr-icon">🚌</div><div><div class="terr-nome">In autobus</div><div class="terr-desc">' + esc(arr.bus) + '</div></div></div>';
+      html += '</div>';
+    }
+
+    // Parcheggio
+    if (park.descrizione) {
+      html += '<div id="terr-park" class="tab-panel">';
+      html += '<div class="terr-item"><div class="terr-icon">🅿️</div><div><div class="terr-nome">Parcheggio</div>';
+      if (park.gratuito !== undefined) html += '<span class="terr-badge">' + (park.gratuito ? '✅ Gratuito' : '💶 A pagamento') + '</span>';
+      html += '<div class="terr-desc">' + esc(park.descrizione) + '</div>';
+      html += '</div></div></div>';
+    }
+
+    // Ristoranti
+    if (t.ristoranti?.length) {
+      html += '<div id="terr-rist" class="tab-panel">';
+      t.ristoranti.forEach(r => {
+        html += '<div class="terr-item"><div class="terr-icon">🍽️</div><div style="flex:1;">';
+        html += '<div class="terr-nome">' + esc(r.nome || '') + '</div>';
+        if (r.tipo) html += '<span class="terr-badge">' + esc(r.tipo) + '</span>';
+        if (r.distanza) html += '<span class="terr-badge">📏 ' + esc(r.distanza) + '</span>';
+        if (r.prezzo) html += '<span class="terr-badge">' + esc(r.prezzo) + '</span>';
+        if (r.link) html += '<div style="margin-top:6px;"><a href="' + esc(r.link) + '" target="_blank" style="background:var(--v);color:#fff;border-radius:8px;padding:5px 12px;text-decoration:none;font-size:12px;font-weight:700;">Prenota →</a></div>';
+        html += '</div></div>';
+      });
+      html += '</div>';
+    }
+
+    html += '</div>';
+    return html;
+  }
+
+  // ═══════════════════════════════════════════════
+  // METEO
+  // ═══════════════════════════════════════════════
+  async function caricaMeteo() {
+    try {
+      const citta = azienda.citta || evento.luogo || '';
+      if (!citta) return;
+      const geo = await fetch('https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(citta) + '&format=json&limit=1').then(r => r.json());
+      if (!geo?.[0]) return;
+      const w = await fetch('https://api.open-meteo.com/v1/forecast?latitude=' + geo[0].lat + '&longitude=' + geo[0].lon + '&current_weather=true').then(r => r.json());
+      const temp = Math.round(w.current_weather?.temperature);
+      const wcode = w.current_weather?.weathercode;
+      const icona = wcode <= 1 ? '☀️' : wcode <= 3 ? '⛅' : wcode <= 67 ? '🌧️' : '🌨️';
+      const badge = document.getElementById('meteo-badge');
+      if (badge) { badge.textContent = icona + ' ' + temp + '°C'; badge.style.display = 'block'; }
+    } catch(_) {}
+  }
+
+  // ═══════════════════════════════════════════════
+  // COUNTDOWN
+  // ═══════════════════════════════════════════════
+  function startCountdown(target) {
+    function tick() {
+      const diff = target - new Date();
+      if (diff <= 0) { document.getElementById('countdown-section')?.remove(); return; }
+      const gg = Math.floor(diff / 86400000);
+      const hh = Math.floor((diff % 86400000) / 3600000);
+      const mm = Math.floor((diff % 3600000) / 60000);
+      const ss = Math.floor((diff % 60000) / 1000);
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = String(v).padStart(2,'0'); };
+      set('cd-gg', gg); set('cd-hh', hh); set('cd-mm', mm); set('cd-ss', ss);
+    }
+    tick();
+    setInterval(tick, 1000);
+  }
+
+  // ═══════════════════════════════════════════════
+  // UTILS
+  // ═══════════════════════════════════════════════
+  function formatData(d) {
+    if (!d) return '--';
+    return new Date(d).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+  function formatOra(d) {
+    if (!d) return '--';
+    return new Date(d).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  }
+  function tryJSON(s) { try { return JSON.parse(s); } catch(_) { return null; } }
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+  }
+  function showError(title, sub) {
+    document.getElementById('root').innerHTML = '<div class="error-page"><div style="font-size:56px;">😟</div><div style="font-size:20px;font-weight:800;">' + esc(title) + '</div><div style="font-size:14px;color:#6b7280;">' + esc(sub) + '</div></div>';
+  }
+
+})();
+</script>
+</body>
+</html>
