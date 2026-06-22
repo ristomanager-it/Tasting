@@ -187,6 +187,16 @@
       <label class="form-label">Telefono (per QR su WhatsApp)</label>
       <input class="form-input" id="ck-tel" type="tel" placeholder="+39 333 1234567" autocomplete="tel">
     </div>
+    <div class="form-field">
+      <label class="form-label">Numero di biglietti</label>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:2px;">
+        <button type="button" onclick="cambiaQuantita(-1)" style="width:40px;height:40px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:20px;cursor:pointer;background:#fff;">−</button>
+        <span id="ck-qty-display" style="font-size:20px;font-weight:800;min-width:32px;text-align:center;">1</span>
+        <button type="button" onclick="cambiaQuantita(1)" style="width:40px;height:40px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:20px;cursor:pointer;background:#fff;">+</button>
+        <input type="hidden" id="ck-qty" value="1">
+        <span style="font-size:13px;color:#9ca3af;">max 10</span>
+      </div>
+    </div>
 
     <div id="stripe-container" style="margin-bottom:16px;"></div>
 
@@ -497,6 +507,25 @@
   // ═══════════════════════════════════════════════
   // CHECKOUT
   // ═══════════════════════════════════════════════
+  window.cambiaQuantita = function(delta) {
+    const input = document.getElementById('ck-qty');
+    const display = document.getElementById('ck-qty-display');
+    const riepilogo = document.getElementById('checkout-riepilogo');
+    let qty = parseInt(input.value) + delta;
+    if (qty < 1) qty = 1;
+    if (qty > 10) qty = 10;
+    input.value = qty;
+    display.textContent = qty;
+    // Aggiorna totale nel riepilogo
+    if (selectedCat) {
+      const tot = (parseFloat(selectedCat.prezzo) * qty).toFixed(2);
+      const qtyRow = document.getElementById('ries-qty');
+      if (qtyRow) qtyRow.textContent = qty + ' × €' + parseFloat(selectedCat.prezzo).toFixed(2);
+      const totRow = document.getElementById('ries-tot');
+      if (totRow) totRow.textContent = '€' + tot;
+    }
+  };
+
   window.apriCheckout = function() {
     const cats = window._cats || [];
     const slots = window._slots || [];
@@ -518,11 +547,15 @@
     }
 
     // Riepilogo
+    // Reset quantità
+    document.getElementById('ck-qty').value = '1';
+    document.getElementById('ck-qty-display').textContent = '1';
+
     const ries = document.getElementById('checkout-riepilogo');
-    ries.innerHTML = '<div class="ries-row"><span>' + esc(selectedCat.nome) + '</span><span>€' + parseFloat(selectedCat.prezzo).toFixed(2) + '</span></div>'
+    ries.innerHTML = '<div class="ries-row"><span>' + esc(selectedCat.nome) + '</span><span id="ries-qty">1 × €' + parseFloat(selectedCat.prezzo).toFixed(2) + '</span></div>'
       + (selectedSlot ? '<div class="ries-row"><span>⏱️ Orario</span><span>' + selectedSlot.ora_inizio.slice(0,5) + '</span></div>' : '')
-      + (selectedCat.consumazioni_incluse ? '<div class="ries-row"><span>🍽️ Consumazioni</span><span>' + selectedCat.consumazioni_incluse + '</span></div>' : '')
-      + '<div class="ries-row"><span>Totale</span><span>€' + parseFloat(selectedCat.prezzo).toFixed(2) + '</span></div>';
+      + (selectedCat.consumazioni_incluse ? '<div class="ries-row"><span>🍽️ Consumazioni per biglietto</span><span>' + selectedCat.consumazioni_incluse + '</span></div>' : '')
+      + '<div class="ries-row"><span>Totale</span><span id="ries-tot">€' + parseFloat(selectedCat.prezzo).toFixed(2) + '</span></div>';
 
     document.getElementById('modal-checkout').classList.add('open');
     document.body.style.overflow = 'hidden';
@@ -586,6 +619,10 @@
 
     try {
       // 1. Crea ordine su Supabase
+      const qty = parseInt(document.getElementById('ck-qty').value) || 1;
+      const totale = parseFloat(selectedCat.prezzo) * qty;
+      const tokenGruppo = generaToken();
+
       const { data: ordine, error: ordErr } = await supa.from('ticket_ordini').insert({
         evento_id: evento.id,
         azienda_id: evento.azienda_id,
@@ -593,10 +630,12 @@
         nome_acquirente: nome + ' ' + cognome,
         email: email,
         telefono: tel || null,
-        totale: parseFloat(selectedCat.prezzo),
+        totale: totale,
+        quantita: qty,
+        token_gruppo: tokenGruppo,
         stato: 'in_attesa',
         metodo_pagamento: 'stripe',
-      }).select('id').single();
+      }).select('id, token_gruppo').single();
 
       if (ordErr) throw ordErr;
 
@@ -605,7 +644,7 @@
         const { error: strErr } = await stripeInstance.confirmPayment({
           elements: stripeElements,
           confirmParams: {
-            return_url: window.location.href + '&ordine=' + ordine.id + '&success=1',
+            return_url: window.location.href + '&ordine=' + ordine.id + '&qty=' + qty + '&tg=' + ordine.token_gruppo + '&success=1',
             payment_method_data: {
               billing_details: { name: nome + ' ' + cognome, email: email }
             }
@@ -613,20 +652,32 @@
         });
         if (strErr) throw strErr;
       } else {
-        // Pagamento non disponibile — crea biglietto gratuito/manuale
-        await supa.from('ticket_biglietti').insert({
+        // Pagamento non disponibile — crea biglietti e vai a gruppo.html
+        const insertData = Array.from({ length: qty }, (_, i) => ({
           ordine_id: ordine.id,
           evento_id: evento.id,
           azienda_id: evento.azienda_id,
           categoria_id: selectedCat.id,
           slot_id: selectedSlot?.id || null,
-          nome_partecipante: nome + ' ' + cognome,
+          // Solo il compratore registra se stesso (biglietto 0)
+          nome_partecipante: i === 0 ? nome + ' ' + cognome : null,
           consumazioni_totali: selectedCat.consumazioni_incluse || null,
+          qr_code: generaToken(),
+          token_pubblico: generaToken(),
           stato: 'non_attivato',
-        });
+        }));
+        await supa.from('ticket_biglietti').insert(insertData);
         await supa.from('ticket_ordini').update({ stato: 'pagato' }).eq('id', ordine.id);
         chiudiCheckout();
-        mostraSuccesso(nome);
+        // Redirect a gruppo.html
+        if (qty === 1) {
+          // Singolo — vai diretto al biglietto
+          const { data: big } = await supa.from('ticket_biglietti').select('token_pubblico').eq('ordine_id', ordine.id).single();
+          window.location.href = 'biglietto.html?t=' + big.token_pubblico;
+        } else {
+          // Multiplo — vai a gruppo.html
+          window.location.href = 'gruppo.html?o=' + ordine.id + '&t=' + ordine.token_gruppo;
+        }
       }
     } catch (err) {
       mostraErrCk(err.message || 'Errore nel pagamento. Riprova.');
@@ -641,12 +692,15 @@
     el.style.display = 'block';
   }
 
+  function generaToken() {
+    return 'tk-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9);
+  }
+
   function mostraSuccesso(nome) {
     root.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:32px 20px;gap:16px;">'
       + '<div style="font-size:64px;">🎉</div>'
       + '<div style="font-size:24px;font-weight:800;color:var(--v);">Acquisto completato!</div>'
-      + '<div style="font-size:15px;color:#6b7280;">Grazie ' + esc(nome) + '! Il tuo biglietto è stato inviato via email.</div>'
-      + '<div style="font-size:13px;color:#9ca3af;">Controlla la casella email per il QR code.</div>'
+      + '<div style="font-size:15px;color:#6b7280;">Grazie ' + esc(nome) + '! Reindirizzamento al biglietto...</div>'
       + '</div>';
   }
 
