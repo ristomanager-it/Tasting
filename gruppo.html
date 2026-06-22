@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Ritira il tuo biglietto — Tasting</title>
+  <link rel="icon" href="logo tasting.png" type="image/png">
+  <link rel="apple-touch-icon" href="logo tasting.png">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --v: #7C3AED; --a: #B45309; --t: #0D9488; --v-light: #F5F3FF; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--v-light); min-height: 100vh; color: #111827; }
+
+    .hero { background: linear-gradient(135deg, var(--v), #9333ea); padding: 32px 20px 28px; text-align: center; color: #fff; }
+    .hero-icon { font-size: 48px; margin-bottom: 10px; }
+    .hero-title { font-size: 22px; font-weight: 800; }
+    .hero-sub { font-size: 14px; opacity: .85; margin-top: 6px; line-height: 1.5; }
+
+    .evento-strip { background: #fff; padding: 14px 16px; display: flex; gap: 12px; align-items: center; border-bottom: 1px solid #f3f4f6; }
+    .evento-img { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; flex-shrink: 0; background: var(--v-light); display: flex; align-items: center; justify-content: center; font-size: 22px; overflow: hidden; }
+    .evento-nome { font-size: 15px; font-weight: 800; color: #111; }
+    .evento-info { font-size: 12px; color: #6b7280; margin-top: 2px; }
+
+    .section { background: #fff; margin: 8px 0; padding: 18px 16px; }
+    .section-title { font-size: 15px; font-weight: 800; color: #374151; margin-bottom: 14px; }
+
+    /* LISTA BIGLIETTI */
+    .biglietto-item { border: 1.5px solid #e5e7eb; border-radius: 14px; padding: 14px; margin-bottom: 10px; }
+    .biglietto-item.registrato { border-color: #0D9488; background: #e6faf7; }
+    .biglietto-item.mio { border-color: var(--v); background: var(--v-light); }
+    .big-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .big-num { font-size: 12px; font-weight: 800; color: #9ca3af; }
+    .big-badge { font-size: 11px; font-weight: 700; border-radius: 20px; padding: 3px 10px; }
+    .big-badge.ok { background: #dcfce7; color: #166534; }
+    .big-badge.pending { background: #fef3c7; color: #92400e; }
+    .big-nome { font-size: 15px; font-weight: 700; color: #111; }
+    .big-tel { font-size: 12px; color: #6b7280; margin-top: 2px; }
+    .big-link { font-size: 12px; color: var(--v); margin-top: 4px; font-weight: 600; cursor: pointer; }
+
+    /* FORM REGISTRAZIONE */
+    .form-card { border: 2px dashed var(--v); border-radius: 14px; padding: 16px; margin-bottom: 10px; background: #fafafa; }
+    .form-card.filling { border-style: solid; background: #fff; }
+    .form-label { font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 5px; display: block; }
+    .form-input { width: 100%; height: 46px; border: 1.5px solid #e5e7eb; border-radius: 12px; padding: 0 14px; font-size: 15px; color: #111; background: #f9fafb; margin-bottom: 10px; }
+    .form-input:focus { outline: none; border-color: var(--v); background: #fff; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .form-btn { width: 100%; height: 48px; border: none; border-radius: 12px; font-size: 15px; font-weight: 800; cursor: pointer; background: var(--v); color: #fff; margin-top: 4px; }
+    .form-btn:disabled { background: #d1d5db; cursor: not-allowed; }
+
+    /* CONDIVIDI */
+    .share-box { background: var(--v-light); border: 1.5px solid var(--v); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+    .share-title { font-size: 14px; font-weight: 800; color: var(--v); margin-bottom: 8px; }
+    .share-link { background: #fff; border: 1px solid #ddd6fe; border-radius: 10px; padding: 10px 14px; font-size: 12px; font-family: monospace; color: #374151; word-break: break-all; margin-bottom: 10px; }
+    .share-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .share-btn { border: none; border-radius: 10px; padding: 10px; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+    .share-btn.wa { background: #25D366; color: #fff; }
+    .share-btn.copy { background: #f3f4f6; color: #374151; }
+
+    /* STATO GENERALE */
+    .progresso { display: flex; align-items: center; gap: 10px; background: #fff; padding: 14px 16px; border-bottom: 1px solid #f3f4f6; }
+    .prog-bar { flex: 1; height: 8px; background: #f3f4f6; border-radius: 4px; overflow: hidden; }
+    .prog-fill { height: 100%; background: var(--t); border-radius: 4px; transition: width .5s; }
+    .prog-text { font-size: 13px; font-weight: 800; color: #374151; white-space: nowrap; }
+
+    .page-loader { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; gap: 14px; }
+    .spinner { width: 44px; height: 44px; border: 4px solid var(--v-light); border-top-color: var(--v); border-radius: 50%; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .footer { text-align: center; padding: 24px 16px 40px; font-size: 12px; color: #9ca3af; }
+    .footer a { color: var(--v); text-decoration: none; }
+
+    @media (min-width: 480px) {
+      body { display: flex; flex-direction: column; align-items: center; }
+      .hero, .evento-strip, .progresso, .section, .footer { max-width: 480px; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="root">
+  <div class="page-loader">
+    <div class="spinner"></div>
+    <div style="font-size:14px;color:#9ca3af;">Caricamento...</div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function() {
+  const SUPA_URL = 'https://cuhcscpvhypoaplcmtjk.supabase.co';
+  const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1aGNzY3B2aHlwb2FwbGNtdGprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4MjY4MjgsImV4cCI6MjA3OTQwMjgyOH0.q9zAs0oh8F1-whtORHBIORF5jIn1NTS3LvSMWleP0a0';
+  const supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+
+  const params = new URLSearchParams(window.location.search);
+  const ordineId = params.get('o');
+  const tokenGruppo = params.get('t');
+  const root = document.getElementById('root');
+
+  let ordine = null, evento = null, biglietti = [];
+  const gruppoLink = window.location.href;
+
+  if (!ordineId || !tokenGruppo) { showError(); return; }
+
+  init();
+
+  async function init() {
+    // Carica ordine
+    const { data: ord } = await supa
+      .from('ticket_ordini')
+      .select('*, ticket_categorie_prezzo(nome, consumazioni_incluse, icona), ticket_eventi(id, nome, data_inizio, luogo, immagine_url, tipo, aziende(nome, telefono))')
+      .eq('id', ordineId)
+      .eq('token_gruppo', tokenGruppo)
+      .maybeSingle();
+
+    if (!ord) { showError(); return; }
+    ordine = ord;
+    evento = ord.ticket_eventi || {};
+
+    // Carica biglietti dell'ordine
+    const { data: bigs } = await supa
+      .from('ticket_biglietti')
+      .select('id, token_pubblico, nome_partecipante, qr_code, stato')
+      .eq('ordine_id', ordineId)
+      .order('created_at');
+
+    biglietti = bigs || [];
+    render();
+  }
+
+  function render() {
+    const registrati = biglietti.filter(b => b.nome_partecipante).length;
+    const totale = biglietti.length;
+    const percReg = totale > 0 ? Math.round((registrati / totale) * 100) : 0;
+    const dataEv = formatData(evento.data_inizio);
+    const oraEv = formatOra(evento.data_inizio);
+
+    let html = '';
+
+    // HERO
+    html += '<div class="hero">';
+    html += '<div class="hero-icon">🎫</div>';
+    html += '<div class="hero-title">I tuoi biglietti</div>';
+    html += '<div class="hero-sub">Hai acquistato <strong>' + totale + ' bigliett' + (totale === 1 ? 'o' : 'i') + '</strong> per questo evento.<br>Ogni partecipante deve registrarsi per ricevere il proprio QR.</div>';
+    html += '</div>';
+
+    // EVENTO STRIP
+    html += '<div class="evento-strip">';
+    html += '<div class="evento-img">';
+    if (evento.immagine_url) html += '<img src="' + esc(evento.immagine_url) + '" alt="">';
+    else html += '🎪';
+    html += '</div>';
+    html += '<div><div class="evento-nome">' + esc(evento.nome || '') + '</div>';
+    html += '<div class="evento-info">📅 ' + dataEv + ' · 🕐 ' + oraEv + ' · 📍 ' + esc(evento.luogo || '') + '</div></div>';
+    html += '</div>';
+
+    // BARRA PROGRESSO
+    html += '<div class="progresso">';
+    html += '<div class="prog-bar"><div class="prog-fill" style="width:' + percReg + '%;"></div></div>';
+    html += '<div class="prog-text">' + registrati + '/' + totale + ' registrati</div>';
+    html += '</div>';
+
+    // CONDIVIDI LINK
+    html += '<div class="section">';
+    html += '<div class="section-title">🔗 Condividi con il gruppo</div>';
+    html += '<p style="font-size:13px;color:#6b7280;line-height:1.5;margin-bottom:12px;">Manda questo link a chi deve ritirare il biglietto. Ognuno clicca, inserisce i suoi dati e riceve il QR su WhatsApp.</p>';
+    html += '<div class="share-box">';
+    html += '<div class="share-title">Link per il gruppo</div>';
+    html += '<div class="share-link" id="share-link-text">' + esc(gruppoLink) + '</div>';
+    html += '<div class="share-btns">';
+    if (evento.aziende?.telefono || true) {
+      const waMsg = encodeURIComponent('🎫 Ritira il tuo biglietto per *' + (evento.nome || 'l\'evento') + '*!\n\nClicca qui: ' + gruppoLink);
+      html += '<button class="share-btn wa" onclick="window.open(\'https://wa.me/?text=' + waMsg + '\',\'_blank\')">💬 Invia su WhatsApp</button>';
+    }
+    html += '<button class="share-btn copy" onclick="copiaLink()">📋 Copia link</button>';
+    html += '</div></div></div>';
+
+    // BIGLIETTI
+    html += '<div class="section">';
+    html += '<div class="section-title">👥 Partecipanti</div>';
+
+    biglietti.forEach((b, i) => {
+      const isRegistrato = !!b.nome_partecipante;
+      html += '<div class="biglietto-item ' + (isRegistrato ? 'registrato' : '') + '" id="big-item-' + i + '">';
+      html += '<div class="big-header">';
+      html += '<div class="big-num">Biglietto ' + (i+1) + '</div>';
+      html += '<div class="big-badge ' + (isRegistrato ? 'ok' : 'pending') + '">' + (isRegistrato ? '✅ Registrato' : '⏳ In attesa') + '</div>';
+      html += '</div>';
+
+      if (isRegistrato) {
+        html += '<div class="big-nome">👤 ' + esc(b.nome_partecipante) + '</div>';
+        html += '<div class="big-link" onclick="apriLink(\'' + esc(b.token_pubblico) + '\')">🎫 Apri biglietto →</div>';
+      } else {
+        // Form registrazione
+        html += '<div class="form-card" id="form-' + i + '">';
+        html += '<p style="font-size:13px;color:#6b7280;margin-bottom:12px;">Sei uno dei partecipanti? Inserisci i tuoi dati per ricevere il QR su WhatsApp.</p>';
+        html += '<div class="form-row">';
+        html += '<div><label class="form-label">Nome *</label><input class="form-input" id="nome-' + i + '" placeholder="Mario"></div>';
+        html += '<div><label class="form-label">Cognome *</label><input class="form-input" id="cognome-' + i + '" placeholder="Rossi"></div>';
+        html += '</div>';
+        html += '<label class="form-label">Telefono (per QR su WhatsApp) *</label>';
+        html += '<input class="form-input" id="tel-' + i + '" type="tel" placeholder="+39 333 1234567" autocomplete="tel">';
+        html += '<label class="form-label">Email</label>';
+        html += '<input class="form-input" id="email-' + i + '" type="email" placeholder="mario@email.it" autocomplete="email">';
+        html += '<button class="form-btn" onclick="registraPartecipante(' + i + ', \'' + b.id + '\')">🎫 Ricevi il mio biglietto</button>';
+        html += '</div>';
+      }
+
+      html += '</div>';
+    });
+
+    html += '</div>';
+
+    // INFO CATEGORIA
+    if (ordine.ticket_categorie_prezzo) {
+      const cat = ordine.ticket_categorie_prezzo;
+      html += '<div class="section" style="background:var(--v-light);border-top:3px solid var(--v);">';
+      html += '<div style="font-size:13px;font-weight:700;color:var(--v);margin-bottom:6px;">' + (cat.icona || '🎫') + ' ' + esc(cat.nome) + '</div>';
+      if (cat.consumazioni_incluse) {
+        html += '<div style="font-size:12px;color:#5b21b6;">🍽️ Include <strong>' + cat.consumazioni_incluse + ' consumazioni</strong> — scansiona alle postazioni per utilizzarle</div>';
+      }
+      html += '</div>';
+    }
+
+    html += '<div class="footer">Powered by <a href="https://tasting.ristoflow-ai.com">Tasting</a> · <a href="https://ristoflow-ai.com">Ristoflow</a></div>';
+
+    root.innerHTML = html;
+  }
+
+  // REGISTRA PARTECIPANTE
+  window.registraPartecipante = async function(idx, bigliettoId) {
+    const nome = document.getElementById('nome-' + idx)?.value.trim();
+    const cognome = document.getElementById('cognome-' + idx)?.value.trim();
+    const tel = document.getElementById('tel-' + idx)?.value.trim();
+    const email = document.getElementById('email-' + idx)?.value.trim();
+
+    if (!nome || !cognome || !tel) {
+      alert('Inserisci nome, cognome e telefono');
+      return;
+    }
+
+    const btn = document.querySelector('#form-' + idx + ' .form-btn');
+    btn.disabled = true;
+    btn.textContent = 'Registrazione...';
+
+    try {
+      const { data: updated, error } = await supa
+        .from('ticket_biglietti')
+        .update({ nome_partecipante: nome + ' ' + cognome })
+        .eq('id', bigliettoId)
+        .select('token_pubblico')
+        .single();
+
+      if (error) throw error;
+
+      // Aggiorna lista locale
+      biglietti[idx].nome_partecipante = nome + ' ' + cognome;
+      biglietti[idx].token_pubblico = updated.token_pubblico;
+
+      // Aggiorna UI
+      const item = document.getElementById('big-item-' + idx);
+      if (item) {
+        item.className = 'biglietto-item registrato';
+        item.innerHTML = '<div class="big-header"><div class="big-num">Biglietto ' + (idx+1) + '</div><div class="big-badge ok">✅ Registrato</div></div>'
+          + '<div class="big-nome">👤 ' + esc(nome + ' ' + cognome) + '</div>'
+          + '<div class="big-link" onclick="apriLink(\'' + esc(updated.token_pubblico) + '\')">🎫 Apri il tuo biglietto →</div>';
+      }
+
+      mostraToast('🎫 Biglietto registrato! Apertura...');
+
+      // Apri biglietto dopo 1 secondo
+      setTimeout(() => {
+        window.open('biglietto.html?t=' + updated.token_pubblico, '_blank');
+      }, 800);
+
+      // Aggiorna barra progresso
+      const registrati = biglietti.filter(b => b.nome_partecipante).length;
+      const totale = biglietti.length;
+      const perc = Math.round((registrati / totale) * 100);
+      const fill = document.querySelector('.prog-fill');
+      const text = document.querySelector('.prog-text');
+      if (fill) fill.style.width = perc + '%';
+      if (text) text.textContent = registrati + '/' + totale + ' registrati';
+
+    } catch(err) {
+      btn.disabled = false;
+      btn.textContent = '🎫 Ricevi il mio biglietto';
+      alert('Errore: ' + err.message);
+    }
+  };
+
+  window.apriLink = function(token) {
+    window.open('biglietto.html?t=' + token, '_blank');
+  };
+
+  window.copiaLink = function() {
+    navigator.clipboard.writeText(gruppoLink).then(() => mostraToast('🔗 Link copiato!')).catch(() => {
+      const el = document.getElementById('share-link-text');
+      if (el) {
+        const range = document.createRange();
+        range.selectNode(el);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+        document.execCommand('copy');
+        mostraToast('🔗 Link copiato!');
+      }
+    });
+  };
+
+  function mostraToast(msg) {
+    const t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.3);white-space:nowrap;';
+    document.body.appendChild(t);
+    setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 300); }, 2500);
+  }
+
+  function formatData(d) {
+    if (!d) return '--';
+    return new Date(d).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+  function formatOra(d) {
+    if (!d) return '--';
+    return new Date(d).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  }
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+  }
+  function showError() {
+    root.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:32px;gap:12px;"><div style="font-size:56px;">😟</div><div style="font-size:20px;font-weight:800;">Link non valido</div><div style="font-size:14px;color:#6b7280;">Questo link non è valido o è scaduto.</div></div>';
+  }
+
+})();
+</script>
+</body>
+</html>
