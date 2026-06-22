@@ -110,6 +110,7 @@ export async function render(container) {
             {id:'postazioni', label:'🍕 Postazioni'},
             {id:'foto', label:'📸 Foto'},
             {id:'sezioni', label:'📄 Contenuti'},
+            {id:'territorio', label:'🌍 Territorio'},
           ].map(t => `
             <button onclick="window._tastingTab('${t.id}')" id="tab-${t.id}"
               style="padding:12px 18px;border:none;background:transparent;font-size:13px;cursor:pointer;
@@ -339,7 +340,7 @@ function aggiornaStatoBadge() {
 // ============================================
 function cambiaTab(tab) {
   tabCorrente = tab;
-  ['info','categorie','slot','postazioni','foto','sezioni'].forEach(t => {
+  ['info','categorie','slot','postazioni','foto','sezioni','territorio'].forEach(t => {
     const btn = document.getElementById('tab-' + t);
     if (!btn) return;
     btn.style.borderBottomColor = t === tab ? V : 'transparent';
@@ -355,6 +356,7 @@ function cambiaTab(tab) {
     case 'postazioni': renderTabPostazioni(body); break;
     case 'foto': renderTabFoto(body); break;
     case 'sezioni': renderTabSezioni(body); break;
+    case 'territorio': renderTabTerritorio(body); break;
   }
 }
 
@@ -1480,6 +1482,7 @@ async function salvaEvento() {
     immagine_url: document.getElementById('ev-immagine')?.value.trim() || null,
     logo_url: document.getElementById('ev-logo')?.value.trim() || null,
     video_url: document.getElementById('ev-video')?.value.trim() || null,
+    territorio: buildTerritorioEventoPayload(),
     meta_descrizione: document.getElementById('ev-meta')?.value.trim() || null,
   };
 
@@ -1541,6 +1544,211 @@ async function eliminaEvento(id) {
   } catch (err) {
     alert('Errore: ' + err.message);
   }
+}
+
+
+// ============================================
+// TAB TERRITORIO
+// ============================================
+async function renderTabTerritorio(body) {
+  if (!eventoCorrente) {
+    body.innerHTML = '<div style="text-align:center;padding:40px;color:#aaa">Salva prima l&#39;evento per configurare il territorio</div>';
+    return;
+  }
+
+  const t = eventoCorrente.territorio || {};
+  const arr = t.come_arrivare || {};
+  const park = t.parcheggio || {};
+  const attrazioni = t.attrazioni || [];
+  const ristoranti = t.ristoranti || [];
+
+  body.innerHTML = '<div style="display:grid;gap:16px;">'
+
+    // DESCRIZIONE LOCATION
+    + '<div style="background:#fff;border:1px solid #eee;border-radius:12px;padding:16px;">'
+    + '<div style="font-size:14px;font-weight:500;color:#333;margin-bottom:12px;">📍 Location evento</div>'
+    + '<div style="display:grid;gap:12px;">'
+    + '<div><label style="font-size:12px;color:#666;font-weight:500">Descrizione luogo</label>'
+    + '<textarea id="terr-desc" rows="3" style="width:100%;margin-top:4px;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;" placeholder="Piazza del Comune di Orte, nel cuore del borgo medievale...">' + esc(t.descrizione || '') + '</textarea></div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
+    + '<div><label style="font-size:12px;color:#666;font-weight:500">🗺️ Link Google Maps</label>'
+    + '<input id="terr-maps" type="url" value="' + esc(arr.maps_url || '') + '" placeholder="https://maps.google.com/..." style="width:100%;margin-top:4px;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;box-sizing:border-box;"></div>'
+    + '<div><label style="font-size:12px;color:#666;font-weight:500">📍 Indirizzo completo</label>'
+    + '<input id="terr-indirizzo" value="' + esc(t.indirizzo || eventoCorrente.indirizzo || '') + '" placeholder="Via Roma 1, 01028 Orte VT" style="width:100%;margin-top:4px;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;box-sizing:border-box;"></div>'
+    + '</div></div></div>'
+
+    // COME ARRIVARE
+    + '<div style="background:#fff;border:1px solid #eee;border-radius:12px;padding:16px;">'
+    + '<div style="font-size:14px;font-weight:500;color:#333;margin-bottom:12px;">🚗 Come arrivare</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
+    + '<div><label style="font-size:12px;color:#666;font-weight:500">🚗 In auto</label>'
+    + '<textarea id="terr-auto" rows="3" style="width:100%;margin-top:4px;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;" placeholder="A1 uscita Orte, poi SS204...">' + esc(arr.auto || '') + '</textarea></div>'
+    + '<div><label style="font-size:12px;color:#666;font-weight:500">🚂 In treno</label>'
+    + '<textarea id="terr-treno" rows="3" style="width:100%;margin-top:4px;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;" placeholder="Stazione Orte (FR1 Roma-Firenze)...">' + esc(arr.treno || '') + '</textarea></div>'
+    + '<div><label style="font-size:12px;color:#666;font-weight:500">✈️ In aereo</label>'
+    + '<textarea id="terr-aereo" rows="3" style="width:100%;margin-top:4px;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;" placeholder="Roma Fiumicino 80 km...">' + esc(arr.aereo || '') + '</textarea></div>'
+    + '<div><label style="font-size:12px;color:#666;font-weight:500">🚌 In autobus</label>'
+    + '<textarea id="terr-bus" rows="3" style="width:100%;margin-top:4px;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;" placeholder="Bus navetta dalla stazione...">' + esc(arr.bus || '') + '</textarea></div>'
+    + '</div></div>'
+
+    // PARCHEGGIO
+    + '<div style="background:#fff;border:1px solid #eee;border-radius:12px;padding:16px;">'
+    + '<div style="font-size:14px;font-weight:500;color:#333;margin-bottom:12px;">🅿️ Parcheggio</div>'
+    + '<div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;">'
+    + '<input id="terr-park" value="' + esc(park.descrizione || '') + '" placeholder="Parcheggio gratuito in Piazza della Libertà, 200 posti" style="padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;box-sizing:border-box;">'
+    + '<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;white-space:nowrap;">'
+    + '<input type="checkbox" id="terr-park-grat" ' + (park.gratuito !== false ? 'checked' : '') + '> Gratuito</label>'
+    + '</div></div>'
+
+    // ATTRAZIONI
+    + '<div style="background:#fff;border:1px solid #eee;border-radius:12px;padding:16px;">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
+    + '<div style="font-size:14px;font-weight:500;color:#333;">🏛️ Attrazioni nei dintorni</div>'
+    + '<button onclick="window._tastingAddAttrazione()" style="background:' + T + ';color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;">+ Aggiungi</button>'
+    + '</div>'
+    + '<div id="attrazioni-list">'
+    + attrazioni.map((a, i) => renderAttrazioneRow(a, i)).join('')
+    + (attrazioni.length === 0 ? '<div style="text-align:center;padding:20px;color:#aaa;font-size:13px;">Nessuna attrazione — aggiungi cosa vedere nei dintorni</div>' : '')
+    + '</div></div>'
+
+    // RISTORANTI
+    + '<div style="background:#fff;border:1px solid #eee;border-radius:12px;padding:16px;">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
+    + '<div style="font-size:14px;font-weight:500;color:#333;">🍽️ Ristoranti consigliati</div>'
+    + '<button onclick="window._tastingAddRistorante()" style="background:' + A + ';color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;">+ Aggiungi</button>'
+    + '</div>'
+    + '<div id="ristoranti-list">'
+    + ristoranti.map((r, i) => renderRistoranteRow(r, i)).join('')
+    + (ristoranti.length === 0 ? '<div style="text-align:center;padding:20px;color:#aaa;font-size:13px;">Nessun ristorante — aggiungi i locali consigliati</div>' : '')
+    + '</div>'
+    + '<div style="margin-top:10px;padding:10px;background:#f5f3ff;border-radius:8px;font-size:12px;color:' + V + ';">'
+    + '💡 I locali su Ristoflow possono essere aggiunti automaticamente — i tuoi ospiti li trovano anche su <a href="https://social.ristoflow-ai.com" target="_blank" style="color:' + V + ';font-weight:500;">RistoflowBook</a>'
+    + '</div></div>'
+
+    + '</div>';
+
+  // Event listeners
+  window._tastingAddAttrazione = () => {
+    const list = document.getElementById('attrazioni-list');
+    const idx = list.querySelectorAll('.attr-row').length;
+    if (idx === 0) list.innerHTML = '';
+    const div = document.createElement('div');
+    div.innerHTML = renderAttrazioneRow({}, idx);
+    list.appendChild(div.firstElementChild);
+    bindTerritorioRemove();
+  };
+
+  window._tastingAddRistorante = () => {
+    const list = document.getElementById('ristoranti-list');
+    const idx = list.querySelectorAll('.rist-row').length;
+    if (idx === 0) list.innerHTML = '';
+    const div = document.createElement('div');
+    div.innerHTML = renderRistoranteRow({}, idx);
+    list.appendChild(div.firstElementChild);
+    bindTerritorioRemove();
+  };
+
+  bindTerritorioRemove();
+
+  // Salva territorio quando si cambia tab o si salva
+  window._tastingSalvaTerritorio = () => buildTerritorioEventoPayload();
+}
+
+function renderAttrazioneRow(a, i) {
+  return '<div class="attr-row" style="background:#f8fafc;border-radius:10px;padding:12px;margin-bottom:8px;border:1px solid #eee;">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+    + '<span style="font-size:12px;font-weight:500;color:#888;">Attrazione ' + (i+1) + '</span>'
+    + '<button class="btn-remove-terr" style="background:#fff0f0;color:#e53e3e;border:1px solid #fca5a5;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;">🗑</button>'
+    + '</div>'
+    + '<div style="display:grid;grid-template-columns:2fr 1fr 1fr 60px;gap:8px;margin-bottom:8px;">'
+    + '<input class="attr-nome" placeholder="Nome *" value="' + esc(a.nome||'') + '" style="padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;">'
+    + '<input class="attr-distanza" placeholder="Distanza" value="' + esc(a.distanza||'') + '" style="padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;">'
+    + '<input class="attr-tempo" placeholder="Tempo" value="' + esc(a.tempo||'') + '" style="padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;">'
+    + '<input class="attr-icona" placeholder="📍" value="' + esc(a.icona||'📍') + '" style="padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;text-align:center;">'
+    + '</div>'
+    + '<input class="attr-desc" placeholder="Descrizione breve" value="' + esc(a.descrizione||'') + '" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;margin-bottom:6px;box-sizing:border-box;">'
+    + '<input class="attr-link" placeholder="Link (opzionale)" value="' + esc(a.link||'') + '" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;box-sizing:border-box;">'
+    + '</div>';
+}
+
+function renderRistoranteRow(r, i) {
+  const prezzi = ['€','€€','€€€','€€€€'];
+  return '<div class="rist-row" style="background:#f8fafc;border-radius:10px;padding:12px;margin-bottom:8px;border:1px solid #eee;">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+    + '<span style="font-size:12px;font-weight:500;color:#888;">Ristorante ' + (i+1) + '</span>'
+    + '<button class="btn-remove-terr" style="background:#fff0f0;color:#e53e3e;border:1px solid #fca5a5;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;">🗑</button>'
+    + '</div>'
+    + '<div style="display:grid;grid-template-columns:2fr 1fr 1fr 80px;gap:8px;margin-bottom:8px;">'
+    + '<input class="rist-nome" placeholder="Nome *" value="' + esc(r.nome||'') + '" style="padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;">'
+    + '<input class="rist-tipo" placeholder="Tipo cucina" value="' + esc(r.tipo||'') + '" style="padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;">'
+    + '<input class="rist-distanza" placeholder="Distanza" value="' + esc(r.distanza||'') + '" style="padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;">'
+    + '<select class="rist-prezzo" style="padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;">'
+    + prezzi.map(p => '<option value="' + p + '" ' + ((r.prezzo||'€€')===p?'selected':'') + '>' + p + '</option>').join('')
+    + '</select>'
+    + '</div>'
+    + '<input class="rist-link" placeholder="🔗 Link prenotazione (Ristoflow o esterno)" value="' + esc(r.link||'') + '" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;box-sizing:border-box;">'
+    + '</div>';
+}
+
+function bindTerritorioRemove() {
+  document.querySelectorAll('.btn-remove-terr').forEach(btn => {
+    btn.onclick = () => btn.closest('.attr-row, .rist-row').remove();
+  });
+}
+
+function buildTerritorioEventoPayload() {
+  try {
+    const attrazioni = [];
+    document.querySelectorAll('.attr-row').forEach(row => {
+      const nome = row.querySelector('.attr-nome')?.value?.trim();
+      if (!nome) return;
+      attrazioni.push({
+        nome,
+        distanza: row.querySelector('.attr-distanza')?.value?.trim() || '',
+        tempo: row.querySelector('.attr-tempo')?.value?.trim() || '',
+        icona: row.querySelector('.attr-icona')?.value?.trim() || '📍',
+        descrizione: row.querySelector('.attr-desc')?.value?.trim() || '',
+        link: row.querySelector('.attr-link')?.value?.trim() || '',
+      });
+    });
+
+    const ristoranti = [];
+    document.querySelectorAll('.rist-row').forEach(row => {
+      const nome = row.querySelector('.rist-nome')?.value?.trim();
+      if (!nome) return;
+      ristoranti.push({
+        nome,
+        tipo: row.querySelector('.rist-tipo')?.value?.trim() || '',
+        distanza: row.querySelector('.rist-distanza')?.value?.trim() || '',
+        prezzo: row.querySelector('.rist-prezzo')?.value || '€€',
+        link: row.querySelector('.rist-link')?.value?.trim() || '',
+      });
+    });
+
+    return {
+      descrizione: document.getElementById('terr-desc')?.value?.trim() || '',
+      indirizzo: document.getElementById('terr-indirizzo')?.value?.trim() || '',
+      come_arrivare: {
+        maps_url: document.getElementById('terr-maps')?.value?.trim() || '',
+        auto: document.getElementById('terr-auto')?.value?.trim() || '',
+        treno: document.getElementById('terr-treno')?.value?.trim() || '',
+        aereo: document.getElementById('terr-aereo')?.value?.trim() || '',
+        bus: document.getElementById('terr-bus')?.value?.trim() || '',
+      },
+      parcheggio: {
+        descrizione: document.getElementById('terr-park')?.value?.trim() || '',
+        gratuito: document.getElementById('terr-park-grat')?.checked ?? true,
+      },
+      attrazioni,
+      ristoranti,
+    };
+  } catch(e) { return null; }
+}
+
+function esc(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 }
 
 // ============================================
