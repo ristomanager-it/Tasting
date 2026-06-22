@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Il tuo biglietto — Tasting</title>
+  <link rel="icon" href="logo tasting.png" type="image/png">
+  <link rel="apple-touch-icon" href="logo tasting.png">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --v: #7C3AED; --a: #B45309; --t: #0D9488; --v-light: #F5F3FF; --a-light: #FEF3C7; --t-light: #E6FAF7; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--v-light); min-height: 100vh; color: #111827; }
+
+    /* HERO */
+    .hero { position: relative; height: 200px; background: linear-gradient(135deg, var(--v), #9333ea); overflow: hidden; }
+    .hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .hero-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 40%, rgba(0,0,0,.5)); }
+    .hero-content { position: absolute; bottom: 0; left: 0; right: 0; padding: 16px; }
+    .hero-title { font-size: 22px; font-weight: 800; color: #fff; line-height: 1.2; }
+    .hero-sub { font-size: 13px; color: rgba(255,255,255,.85); margin-top: 3px; }
+    .meteo-badge { position: absolute; top: 12px; right: 12px; background: rgba(255,255,255,.92); border-radius: 20px; padding: 5px 12px; font-size: 13px; font-weight: 700; display: none; }
+
+    /* BIGLIETTO CARD */
+    .ticket-wrapper { margin: -20px 16px 12px; position: relative; z-index: 2; }
+    .ticket-card { background: #fff; border-radius: 20px; box-shadow: 0 8px 32px rgba(124,58,237,.15); overflow: hidden; }
+    .ticket-top { background: var(--v); padding: 16px; color: #fff; display: flex; justify-content: space-between; align-items: center; }
+    .ticket-tipo { font-size: 11px; font-weight: 800; opacity: .8; text-transform: uppercase; letter-spacing: .06em; }
+    .ticket-nome-cat { font-size: 18px; font-weight: 800; margin-top: 2px; }
+    .ticket-stato { background: rgba(255,255,255,.2); border-radius: 20px; padding: 4px 12px; font-size: 12px; font-weight: 700; }
+    .ticket-divider { display: flex; align-items: center; position: relative; height: 24px; background: #fff; }
+    .ticket-divider::before { content: ''; position: absolute; left: -12px; width: 24px; height: 24px; background: var(--v-light); border-radius: 50%; }
+    .ticket-divider::after { content: ''; position: absolute; right: -12px; width: 24px; height: 24px; background: var(--v-light); border-radius: 50%; }
+    .ticket-divider-line { flex: 1; border-top: 2px dashed #e5e7eb; margin: 0 16px; }
+    .ticket-body { padding: 16px; }
+    .ticket-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .ticket-info-box { background: var(--v-light); border-radius: 12px; padding: 10px; }
+    .ticket-info-label { font-size: 10px; font-weight: 800; color: var(--v); text-transform: uppercase; letter-spacing: .05em; }
+    .ticket-info-value { font-size: 15px; font-weight: 800; color: #111; margin-top: 2px; }
+    .ticket-info-sub { font-size: 11px; color: #6b7280; margin-top: 1px; }
+
+    /* QR */
+    .qr-section { text-align: center; padding: 16px; border-top: 1px solid #f3f4f6; }
+    .qr-label { font-size: 11px; font-weight: 800; color: #9ca3af; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 12px; }
+    #qr-canvas { border-radius: 12px; }
+    .qr-code-text { font-family: monospace; font-size: 11px; color: #9ca3af; margin-top: 8px; letter-spacing: .05em; }
+
+    /* CONSUMAZIONI */
+    .cons-section { padding: 16px; border-top: 1px solid #f3f4f6; }
+    .cons-title { font-size: 13px; font-weight: 800; color: #374151; margin-bottom: 10px; }
+    .cons-bar { height: 12px; background: #f3f4f6; border-radius: 6px; overflow: hidden; margin-bottom: 6px; }
+    .cons-fill { height: 100%; border-radius: 6px; transition: width .5s; }
+    .cons-nums { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; }
+
+    /* SEZIONI */
+    .section { background: #fff; margin: 8px 0; padding: 18px 16px; }
+    .section-title { font-size: 14px; font-weight: 800; color: #374151; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+
+    /* POSTAZIONI */
+    .post-item { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
+    .post-item:last-child { border-bottom: none; }
+    .post-num { width: 28px; height: 28px; border-radius: 50%; background: var(--t-light); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: var(--t); flex-shrink: 0; }
+    .post-img { width: 48px; height: 48px; border-radius: 10px; object-fit: cover; flex-shrink: 0; background: var(--t-light); display: flex; align-items: center; justify-content: center; font-size: 20px; overflow: hidden; }
+    .post-nome { font-size: 13px; font-weight: 700; color: #111; }
+    .post-prod { font-size: 11px; color: var(--t); font-weight: 600; margin-top: 2px; }
+
+    /* COUNTDOWN */
+    .countdown { display: flex; gap: 8px; justify-content: center; margin: 12px 0; }
+    .cd-unit { background: var(--v); border-radius: 12px; padding: 10px 14px; text-align: center; flex: 1; max-width: 72px; }
+    .cd-num { font-size: 22px; font-weight: 800; color: #fff; }
+    .cd-lab { font-size: 9px; color: rgba(255,255,255,.7); font-weight: 700; text-transform: uppercase; margin-top: 2px; }
+
+    /* TERRITORIO */
+    .terr-item { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
+    .terr-item:last-child { border-bottom: none; }
+    .terr-icon { width: 36px; height: 36px; border-radius: 10px; background: var(--v-light); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+    .terr-nome { font-size: 13px; font-weight: 700; color: #111; }
+    .terr-desc { font-size: 12px; color: #6b7280; margin-top: 2px; }
+    .terr-badge { display: inline-flex; align-items: center; background: var(--v-light); color: var(--v); border-radius: 20px; padding: 2px 8px; font-size: 11px; font-weight: 600; margin: 2px 2px 0 0; }
+
+    /* AZIONI */
+    .azioni-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 16px 12px; }
+    .az-btn { border: none; border-radius: 14px; padding: 14px 10px; font-size: 13px; font-weight: 800; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5px; transition: transform .12s; }
+    .az-btn:active { transform: scale(.96); }
+    .az-btn .az-icon { font-size: 22px; }
+    .az-btn.primary { background: var(--v); color: #fff; }
+    .az-btn.success { background: #059669; color: #fff; }
+    .az-btn.amber { background: var(--a); color: #fff; }
+    .az-btn.teal { background: var(--t); color: #fff; }
+    .az-btn.ghost { background: #f3f4f6; color: #374151; }
+    .az-btn.wa { background: #25D366; color: #fff; }
+    .menu-btn { display: flex; align-items: center; justify-content: center; gap: 10px; border: none; border-radius: 14px; padding: 16px; font-size: 15px; font-weight: 800; cursor: pointer; text-decoration: none; width: calc(100% - 32px); margin: 0 16px 10px; }
+
+    /* MODAL */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(17,24,39,.5); z-index: 100; display: none; align-items: flex-end; }
+    .modal-overlay.open { display: flex; }
+    .modal-box { background: #fff; border-radius: 24px 24px 0 0; padding: 20px 16px calc(24px + env(safe-area-inset-bottom)); width: 100%; max-height: 90vh; overflow-y: auto; }
+    .modal-handle { width: 40px; height: 4px; background: #d1d5db; border-radius: 4px; margin: 0 auto 16px; }
+    .modal-title { font-size: 18px; font-weight: 800; color: #111; margin-bottom: 16px; }
+    .modal-label { font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 5px; display: block; }
+    .modal-input { width: 100%; height: 46px; border: 1.5px solid #e5e7eb; border-radius: 12px; padding: 0 14px; font-size: 15px; color: #111; background: #f9fafb; margin-bottom: 12px; }
+    .modal-input:focus { outline: none; border-color: var(--v); background: #fff; }
+    .modal-btn { width: 100%; height: 50px; border: none; border-radius: 14px; font-size: 15px; font-weight: 800; cursor: pointer; margin-bottom: 8px; }
+    .modal-btn.primary { background: var(--v); color: #fff; }
+    .modal-btn.ghost { background: #f3f4f6; color: #374151; }
+
+    /* SLOT GRID */
+    .slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(85px, 1fr)); gap: 8px; margin: 12px 0; }
+    .slot-item { border: 1.5px solid #e5e7eb; border-radius: 10px; padding: 10px 6px; text-align: center; cursor: pointer; transition: all .15s; }
+    .slot-item.current { border-color: var(--v); background: var(--v-light); }
+    .slot-item.selected { border-color: var(--t); background: var(--t-light); }
+    .slot-item.pieno { opacity: .4; cursor: not-allowed; }
+    .slot-time { font-size: 14px; font-weight: 800; color: #111; }
+    .slot-lib { font-size: 10px; font-weight: 700; margin-top: 3px; }
+
+    /* LOADER */
+    .page-loader { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; gap: 14px; }
+    .spinner { width: 44px; height: 44px; border: 4px solid var(--v-light); border-top-color: var(--v); border-radius: 50%; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; text-align: center; padding: 32px; gap: 12px; }
+    .footer { text-align: center; padding: 24px 16px 40px; font-size: 12px; color: #9ca3af; }
+    .footer a { color: var(--v); text-decoration: none; }
+
+    @media (min-width: 480px) {
+      body { display: flex; flex-direction: column; align-items: center; }
+      .hero, .section, .azioni-grid, .ticket-wrapper, .menu-btn, .footer { max-width: 480px; width: 100%; }
+      .modal-box { max-width: 480px; margin: 0 auto; border-radius: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="root">
+  <div class="page-loader">
+    <div class="spinner"></div>
+    <div style="font-size:14px;color:#9ca3af;">Caricamento biglietto...</div>
+  </div>
+</div>
+
+<!-- MODAL CAMBIO SLOT -->
+<div class="modal-overlay" id="modal-slot">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-title">⏱️ Cambia orario ingresso</div>
+    <div id="slot-bloccato" style="display:none;background:#fff0f0;border-radius:12px;padding:14px;color:#991b1b;font-size:13px;font-weight:600;margin-bottom:14px;">
+      ⏰ Non è più possibile cambiare orario. Le modifiche devono essere effettuate almeno 2 ore prima dell\'ingresso.
+    </div>
+    <div id="slot-form">
+      <p style="font-size:13px;color:#6b7280;margin-bottom:14px;line-height:1.5;">Seleziona un nuovo orario disponibile. Il cambio è gratuito fino a 2 ore prima dell\'evento.</p>
+      <div class="slot-grid" id="modal-slot-grid"></div>
+    </div>
+    <button class="modal-btn primary" id="btn-conferma-slot">Conferma nuovo orario</button>
+    <button class="modal-btn ghost" onclick="chiudiModal('slot')">Annulla</button>
+  </div>
+</div>
+
+<!-- MODAL ANNULLA -->
+<div class="modal-overlay" id="modal-annulla">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🗑️ Annulla biglietto</div>
+    <p style="font-size:14px;color:#4b5563;line-height:1.6;margin-bottom:16px;">Sei sicuro di voler annullare il biglietto? Questa azione non può essere annullata.</p>
+    <label class="modal-label">Motivo (opzionale)</label>
+    <input class="modal-input" id="annulla-motivo" placeholder="Dimmi il motivo...">
+    <button class="modal-btn" style="background:#fee2e2;color:#991b1b;" id="btn-conferma-annulla">Sì, annulla biglietto</button>
+    <button class="modal-btn ghost" onclick="chiudiModal('annulla')">No, torna indietro</button>
+  </div>
+</div>
+
+<!-- LIGHTBOX -->
+<div id="lightbox" style="position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:200;display:none;align-items:center;justify-content:center;">
+  <button onclick="document.getElementById('lightbox').style.display='none'" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,.2);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:18px;cursor:pointer;">✕</button>
+  <img id="lb-img" style="max-width:95vw;max-height:90vh;border-radius:10px;object-fit:contain;" src="" alt="">
+</div>
+
+<!-- QR.js -->
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function() {
+  const SUPA_URL = 'https://cuhcscpvhypoaplcmtjk.supabase.co';
+  const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1aGNzY3B2aHlwb2FwbGNtdGprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4MjY4MjgsImV4cCI6MjA3OTQwMjgyOH0.q9zAs0oh8F1-whtORHBIORF5jIn1NTS3LvSMWleP0a0';
+  const supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('t');
+  const root = document.getElementById('root');
+
+  let biglietto = null, evento = null, azienda = null;
+  let selectedNewSlot = null;
+
+  if (!token) { showError('Biglietto non trovato', 'Il link non è valido.'); return; }
+
+  init();
+
+  // ═══════════════════════════════════════
+  // INIT
+  // ═══════════════════════════════════════
+  async function init() {
+    const { data: b, error } = await supa
+      .from('ticket_biglietti')
+      .select('*, ticket_ordini(nome_acquirente, email, telefono), ticket_categorie_prezzo(nome, prezzo, consumazioni_incluse, icona, colore), ticket_slot(data, ora_inizio, ora_fine, capacita_totale, venduti_totale)')
+      .eq('token_pubblico', token)
+      .maybeSingle();
+
+    if (error || !b) { showError('Biglietto non trovato', 'Il link potrebbe essere scaduto o non valido.'); return; }
+    biglietto = b;
+
+    const { data: ev } = await supa
+      .from('ticket_eventi')
+      .select('*, aziende(nome, logo_url, cover_url, telefono, indirizzo, citta, colore_brand, stripe_publishable_key)')
+      .eq('id', b.evento_id)
+      .maybeSingle();
+
+    if (!ev) { showError('Evento non trovato', 'L\'evento associato non esiste.'); return; }
+    evento = ev;
+    azienda = ev.aziende || {};
+
+    // Brand color
+    if (azienda.colore_brand) document.documentElement.style.setProperty('--v', azienda.colore_brand);
+
+    document.title = 'Biglietto — ' + ev.nome;
+
+    // Carica postazioni se consumazione
+    let postazioni = [];
+    if (ev.tipo === 'consumazione' || ev.tipo === 'pacchetti') {
+      const { data: posts } = await supa
+        .from('ticket_postazioni')
+        .select('*')
+        .eq('evento_id', ev.id)
+        .eq('attiva', true)
+        .order('ordine');
+      postazioni = posts || [];
+    }
+
+    render(postazioni);
+    caricaMeteo();
+  }
+
+  // ═══════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════
+  function render(postazioni) {
+    const b = biglietto;
+    const ev = evento;
+    const az = azienda;
+    const cat = b.ticket_categorie_prezzo || {};
+    const slot = b.ticket_slot || null;
+    const ordine = b.ticket_ordini || {};
+    const t = (typeof ev.territorio === 'string' ? tryJSON(ev.territorio) : ev.territorio) || {};
+    const arr = t.come_arrivare || {};
+    const dataEv = formatData(ev.data_inizio);
+    const oraEv = formatOra(ev.data_inizio);
+    const statoMeta = getStatoBiglietto(b.stato);
+    const isConsumazione = ev.tipo === 'consumazione' || ev.tipo === 'pacchetti';
+    const consUsate = b.consumazioni_usate || 0;
+    const consTot = b.consumazioni_totali;
+    const consRim = consTot ? consTot - consUsate : null;
+
+    let html = '';
+
+    // HERO
+    html += '<div class="hero">';
+    if (ev.immagine_url) html += '<img src="' + esc(ev.immagine_url) + '" alt="">';
+    html += '<div class="hero-overlay"></div>';
+    html += '<div class="meteo-badge" id="meteo-badge"></div>';
+    html += '<div class="hero-content">';
+    html += '<div class="hero-title">' + esc(ev.nome) + '</div>';
+    html += '<div class="hero-sub">📅 ' + dataEv + ' · 📍 ' + esc(ev.luogo || '') + '</div>';
+    html += '</div></div>';
+
+    // BIGLIETTO CARD
+    html += '<div class="ticket-wrapper"><div class="ticket-card">';
+
+    // Top
+    html += '<div class="ticket-top">';
+    html += '<div><div class="ticket-tipo">🎫 ' + getTipoLabel(ev.tipo) + '</div>';
+    html += '<div class="ticket-nome-cat">' + esc(cat.nome || 'Biglietto') + '</div>';
+    if (ordine.nome_acquirente) html += '<div style="font-size:12px;opacity:.75;margin-top:4px;">👤 ' + esc(ordine.nome_acquirente) + '</div>';
+    html += '</div>';
+    html += '<div class="ticket-stato" style="background:' + statoMeta.bg + ';color:' + statoMeta.col + ';">' + statoMeta.emoji + ' ' + statoMeta.label + '</div>';
+    html += '</div>';
+
+    // Info grid
+    html += '<div class="ticket-divider"><div class="ticket-divider-line"></div></div>';
+    html += '<div class="ticket-body">';
+    html += '<div class="ticket-info-grid">';
+    html += '<div class="ticket-info-box"><div class="ticket-info-label">Data</div><div class="ticket-info-value">' + dataEv + '</div><div class="ticket-info-sub">' + getDayName(ev.data_inizio) + '</div></div>';
+    html += '<div class="ticket-info-box"><div class="ticket-info-label">Ora</div><div class="ticket-info-value">' + (slot ? slot.ora_inizio.slice(0,5) : oraEv) + '</div><div class="ticket-info-sub">' + (slot ? 'slot ingresso' : 'apertura') + '</div></div>';
+    if (consTot) {
+      html += '<div class="ticket-info-box"><div class="ticket-info-label">Consumazioni</div><div class="ticket-info-value">' + consRim + '</div><div class="ticket-info-sub">rimaste su ' + consTot + '</div></div>';
+    }
+    html += '<div class="ticket-info-box"><div class="ticket-info-label">Luogo</div><div class="ticket-info-value" style="font-size:13px;">' + esc(ev.luogo || '--') + '</div></div>';
+    html += '</div>';
+
+    // Barra consumazioni
+    if (consTot && b.stato !== 'non_attivato') {
+      const perc = Math.round((consUsate / consTot) * 100);
+      const colFill = perc >= 90 ? '#e53e3e' : perc >= 70 ? '#f59e0b' : '#0D9488';
+      html += '<div class="cons-section">';
+      html += '<div class="cons-title">🍽️ Consumazioni</div>';
+      html += '<div class="cons-bar"><div class="cons-fill" style="width:' + perc + '%;background:' + colFill + ';"></div></div>';
+      html += '<div class="cons-nums"><span style="color:' + colFill + ';">' + consUsate + ' usate</span><span>' + consRim + ' rimaste</span></div>';
+      html += '</div>';
+    }
+
+    html += '</div>'; // ticket-body
+
+    // QR CODE
+    html += '<div class="qr-section">';
+    html += '<div class="qr-label">' + (b.stato === 'non_attivato' ? '🔒 Attivazione all\'ingresso' : b.stato === 'attivo' ? '✅ Biglietto attivo — mostra il QR' : '⛔ Biglietto ' + b.stato) + '</div>';
+    html += '<div id="qr-canvas" style="display:inline-block;' + (b.stato === 'annullato' || b.stato === 'esaurito' ? 'opacity:.3;' : '') + '"></div>';
+    html += '<div class="qr-code-text">' + esc(b.qr_code.substring(0, 16).toUpperCase()) + '...</div>';
+    html += '</div>';
+
+    html += '</div></div>'; // ticket-card, ticket-wrapper
+
+    // COUNTDOWN
+    const targetDate = new Date(ev.data_inizio);
+    if (targetDate > new Date() && b.stato !== 'annullato') {
+      html += '<div class="section" id="countdown-sec">';
+      html += '<div class="section-title">⏱️ Manca all\'evento</div>';
+      html += '<div class="countdown"><div class="cd-unit"><div class="cd-num" id="cd-gg">--</div><div class="cd-lab">giorni</div></div><div class="cd-unit"><div class="cd-num" id="cd-hh">--</div><div class="cd-lab">ore</div></div><div class="cd-unit"><div class="cd-num" id="cd-mm">--</div><div class="cd-lab">min</div></div><div class="cd-unit"><div class="cd-num" id="cd-ss">--</div><div class="cd-lab">sec</div></div></div>';
+      html += '</div>';
+    }
+
+    // AZIONI
+    if (b.stato !== 'annullato' && b.stato !== 'esaurito') {
+      html += '<div class="azioni-grid">';
+      if (slot) {
+        html += '<button class="az-btn primary" onclick="apriCambioSlot()"><span class="az-icon">⏱️</span>Cambia orario</button>';
+      }
+      if (az.telefono) {
+        const tel = az.telefono.replace(/\D/g, '');
+        const waMsg = encodeURIComponent('Ciao! Ho un biglietto per ' + ev.nome + ' (codice: ' + b.qr_code.substring(0,8).toUpperCase() + ')');
+        html += '<a class="az-btn wa" href="https://wa.me/' + tel + '?text=' + waMsg + '" target="_blank"><span class="az-icon">💬</span>WhatsApp</a>';
+      }
+      html += '<button class="az-btn ghost" onclick="scaricaBiglietto()"><span class="az-icon">📥</span>Salva</button>';
+      html += '<button class="az-btn ghost" onclick="condividiBiglietto()"><span class="az-icon">🔗</span>Condividi</button>';
+      if (b.stato === 'non_attivato') {
+        html += '<button class="az-btn ghost" style="grid-column:1/-1;color:#e53e3e;" onclick="apriModal(\'annulla\')"><span class="az-icon">🗑️</span>Annulla biglietto</button>';
+      }
+      html += '</div>';
+    }
+
+    // Google Calendar
+    html += buildCalendarBtn(ev);
+
+    // POSTAZIONI
+    if (isConsumazione && postazioni.length > 0) {
+      html += '<div class="section">';
+      html += '<div class="section-title">🗺️ Il percorso delle postazioni</div>';
+      postazioni.forEach((p, i) => {
+        html += '<div class="post-item">';
+        html += '<div class="post-num">' + (i+1) + '</div>';
+        html += '<div class="post-img">';
+        if (p.immagine_url) html += '<img src="' + esc(p.immagine_url) + '" alt="" style="width:100%;height:100%;object-fit:cover;">';
+        else html += '🍽️';
+        html += '</div>';
+        html += '<div style="flex:1;"><div class="post-nome">' + esc(p.nome) + '</div>';
+        if (p.produttore) html += '<div class="post-prod">👤 ' + esc(p.produttore) + '</div>';
+        if (p.max_per_biglietto) html += '<div style="font-size:11px;color:#9ca3af;margin-top:2px;">Max ' + p.max_per_biglietto + ' per biglietto</div>';
+        html += '</div></div>';
+      });
+      html += '</div>';
+    }
+
+    // COME ARRIVARE
+    if (arr.maps_url || arr.auto || ev.indirizzo) {
+      html += '<div class="section">';
+      html += '<div class="section-title">🗺️ Come arrivare</div>';
+      if (ev.indirizzo) html += '<div style="font-size:13px;color:#6b7280;margin-bottom:10px;">📍 ' + esc(ev.indirizzo) + '</div>';
+      if (arr.maps_url || ev.indirizzo) {
+        const mapsUrl = arr.maps_url || ('https://maps.google.com/?q=' + encodeURIComponent(ev.indirizzo || ev.luogo || ''));
+        html += '<a href="' + esc(mapsUrl) + '" target="_blank" style="display:flex;align-items:center;gap:10px;background:var(--v);color:#fff;border-radius:12px;padding:12px 16px;text-decoration:none;font-size:14px;font-weight:700;margin-bottom:10px;">🧭 Apri in Google Maps</a>';
+      }
+      if (arr.auto) html += '<div class="terr-item"><div class="terr-icon">🚗</div><div><div class="terr-nome">In auto</div><div class="terr-desc">' + esc(arr.auto) + '</div></div></div>';
+      if (arr.treno) html += '<div class="terr-item"><div class="terr-icon">🚂</div><div><div class="terr-nome">In treno</div><div class="terr-desc">' + esc(arr.treno) + '</div></div></div>';
+      if (t.parcheggio?.descrizione) html += '<div class="terr-item"><div class="terr-icon">🅿️</div><div><div class="terr-nome">Parcheggio</div><div class="terr-desc">' + esc(t.parcheggio.descrizione) + (t.parcheggio.gratuito ? ' — Gratuito' : '') + '</div></div></div>';
+      html += '</div>';
+    }
+
+    // ATTRAZIONI
+    if (t.attrazioni?.length) {
+      html += '<div class="section">';
+      html += '<div class="section-title">🌍 Cosa vedere nei dintorni</div>';
+      t.attrazioni.forEach(a => {
+        html += '<div class="terr-item"><div class="terr-icon">' + (a.icona || '📍') + '</div>';
+        html += '<div><div class="terr-nome">' + esc(a.nome || '') + '</div>';
+        if (a.distanza) html += '<span class="terr-badge">📏 ' + esc(a.distanza) + '</span>';
+        if (a.tempo) html += '<span class="terr-badge">🕐 ' + esc(a.tempo) + '</span>';
+        if (a.descrizione) html += '<div class="terr-desc">' + esc(a.descrizione) + '</div>';
+        html += '</div></div>';
+      });
+      html += '</div>';
+    }
+
+    // RISTORANTI
+    if (t.ristoranti?.length) {
+      html += '<div class="section">';
+      html += '<div class="section-title">🍽️ Dove mangiare nei dintorni</div>';
+      t.ristoranti.forEach(r => {
+        html += '<div class="terr-item"><div class="terr-icon">🍽️</div>';
+        html += '<div style="flex:1;"><div class="terr-nome">' + esc(r.nome || '') + '</div>';
+        if (r.tipo) html += '<span class="terr-badge">' + esc(r.tipo) + '</span>';
+        if (r.distanza) html += '<span class="terr-badge">📏 ' + esc(r.distanza) + '</span>';
+        if (r.prezzo) html += '<span class="terr-badge">' + esc(r.prezzo) + '</span>';
+        if (r.link) html += '<div style="margin-top:6px;"><a href="' + esc(r.link) + '" target="_blank" style="background:var(--v);color:#fff;border-radius:8px;padding:4px 12px;text-decoration:none;font-size:12px;font-weight:700;">Prenota →</a></div>';
+        html += '</div></div>';
+      });
+      html += '</div>';
+    }
+
+    // RISTOFLOWBOOK
+    html += '<a class="menu-btn" href="https://social.ristoflow-ai.com" target="_blank" style="background:#f97316;color:#fff;">🍽️ Scopri altri locali della zona</a>';
+
+    html += '<div class="footer">Powered by <a href="https://tasting.ristoflow-ai.com" target="_blank">Tasting</a> · <a href="https://ristoflow-ai.com" target="_blank">Ristoflow</a></div>';
+
+    root.innerHTML = html;
+
+    // QR Code
+    if (b.stato !== 'annullato') {
+      new QRCode(document.getElementById('qr-canvas'), {
+        text: b.qr_code,
+        width: 180, height: 180,
+        colorDark: '#111827', colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+    }
+
+    // Countdown
+    if (targetDate > new Date() && b.stato !== 'annullato') startCountdown(targetDate);
+  }
+
+  // ═══════════════════════════════════════
+  // CAMBIO SLOT
+  // ═══════════════════════════════════════
+  async function apriCambioSlot() {
+    window.apriCambioSlot = apriCambioSlot;
+    const slotCorrente = biglietto.ticket_slot;
+    const bloccato = slotCorrente ? !isPossibileCambio(slotCorrente) : false;
+
+    document.getElementById('slot-bloccato').style.display = bloccato ? '' : 'none';
+    document.getElementById('slot-form').style.display = bloccato ? 'none' : '';
+
+    if (!bloccato) {
+      // Carica slot disponibili
+      const { data: slots } = await supa
+        .from('ticket_slot')
+        .select('*')
+        .eq('evento_id', evento.id)
+        .eq('attiva', true)
+        .order('data').order('ora_inizio');
+
+      const grid = document.getElementById('modal-slot-grid');
+      grid.innerHTML = (slots || []).map(s => {
+        const rimasti = (s.capacita_totale || s.capacita || 0) - (s.venduti_totale || s.venduti || 0);
+        const pieno = rimasti <= 0;
+        const isCurrent = slotCorrente && s.id === slotCorrente.id;
+        return '<div class="slot-item' + (isCurrent ? ' current' : '') + (pieno ? ' pieno' : '') + '" data-slot-id="' + s.id + '" onclick="' + (pieno ? '' : 'selezionaSlotModal(\'' + s.id + '\')') + '">'
+          + '<div class="slot-time">' + s.ora_inizio.slice(0,5) + '</div>'
+          + '<div class="slot-lib" style="color:' + (pieno ? '#e53e3e' : isCurrent ? 'var(--v)' : '#0D9488') + ';">'
+          + (pieno ? 'PIENO' : isCurrent ? 'ATTUALE' : rimasti + ' lib.') + '</div>'
+          + '</div>';
+      }).join('');
+    }
+
+    document.getElementById('modal-slot').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  window.apriCambioSlot = apriCambioSlot;
+
+  window.selezionaSlotModal = function(slotId) {
+    selectedNewSlot = slotId;
+    document.querySelectorAll('#modal-slot-grid .slot-item').forEach(el => {
+      el.classList.toggle('selected', el.dataset.slotId === slotId);
+    });
+  };
+
+  document.getElementById('btn-conferma-slot').onclick = async () => {
+    if (!selectedNewSlot) { alert('Seleziona un orario'); return; }
+    const btn = document.getElementById('btn-conferma-slot');
+    btn.disabled = true; btn.textContent = 'Salvataggio...';
+    try {
+      const { error } = await supa.from('ticket_biglietti')
+        .update({ slot_id: selectedNewSlot })
+        .eq('token_pubblico', token);
+      if (error) throw error;
+      chiudiModal('slot');
+      mostraToast('✅ Orario aggiornato!');
+      setTimeout(() => window.location.reload(), 1000);
+    } catch(err) {
+      btn.disabled = false; btn.textContent = 'Conferma nuovo orario';
+      alert('Errore: ' + err.message);
+    }
+  };
+
+  function isPossibileCambio(slot) {
+    if (!slot?.data || !slot?.ora_inizio) return true;
+    const target = new Date(slot.data + 'T' + slot.ora_inizio);
+    return (target - new Date()) > 2 * 3600 * 1000;
+  }
+
+  // ═══════════════════════════════════════
+  // ANNULLA BIGLIETTO
+  // ═══════════════════════════════════════
+  document.getElementById('btn-conferma-annulla').onclick = async () => {
+    const btn = document.getElementById('btn-conferma-annulla');
+    btn.disabled = true; btn.textContent = 'Annullamento...';
+    const motivo = document.getElementById('annulla-motivo').value.trim();
+    try {
+      const { error } = await supa.from('ticket_biglietti')
+        .update({ stato: 'annullato' })
+        .eq('token_pubblico', token);
+      if (error) throw error;
+      chiudiModal('annulla');
+      root.innerHTML = '<div class="error-page"><div style="font-size:56px;">✅</div><div style="font-size:20px;font-weight:800;color:#374151;">Biglietto annullato</div><div style="font-size:14px;color:#6b7280;">Il tuo biglietto è stato annullato con successo.</div></div>';
+    } catch(err) {
+      btn.disabled = false; btn.textContent = 'Sì, annulla biglietto';
+      alert('Errore: ' + err.message);
+    }
+  };
+
+  // ═══════════════════════════════════════
+  // MODAL
+  // ═══════════════════════════════════════
+  window.apriModal = function(type) {
+    document.getElementById('modal-' + type).classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+  window.chiudiModal = function(type) {
+    document.getElementById('modal-' + type).classList.remove('open');
+    document.body.style.overflow = '';
+  };
+
+  // ═══════════════════════════════════════
+  // CONDIVIDI / SALVA
+  // ═══════════════════════════════════════
+  window.condividiBiglietto = function() {
+    if (navigator.share) {
+      navigator.share({
+        title: 'Biglietto — ' + evento.nome,
+        text: 'Il mio biglietto per ' + evento.nome,
+        url: window.location.href
+      });
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      mostraToast('🔗 Link copiato!');
+    }
+  };
+
+  window.scaricaBiglietto = function() {
+    const canvas = document.querySelector('#qr-canvas canvas');
+    if (!canvas) { mostraToast('QR non disponibile'); return; }
+    const link = document.createElement('a');
+    link.download = 'biglietto-' + evento.nome.toLowerCase().replace(/\s+/g, '-') + '.png';
+    link.href = canvas.toDataURL();
+    link.click();
+    mostraToast('📥 Biglietto salvato!');
+  };
+
+  // ═══════════════════════════════════════
+  // CALENDARIO
+  // ═══════════════════════════════════════
+  function buildCalendarBtn(ev) {
+    const start = new Date(ev.data_inizio).toISOString().replace(/[-:]/g,'').slice(0,15) + '00';
+    const end = new Date(ev.data_fine || ev.data_inizio).toISOString().replace(/[-:]/g,'').slice(0,15) + '00';
+    const gcUrl = 'https://www.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(ev.nome) + '&dates=' + start + '/' + end + '&location=' + encodeURIComponent(ev.luogo || '') + '&details=' + encodeURIComponent('Biglietto Tasting: ' + window.location.href);
+    return '<a class="menu-btn" href="' + gcUrl + '" target="_blank" style="background:#4285F4;color:#fff;">📅 Aggiungi a Google Calendar</a>';
+  }
+
+  // ═══════════════════════════════════════
+  // METEO
+  // ═══════════════════════════════════════
+  async function caricaMeteo() {
+    try {
+      const citta = azienda.citta || evento.luogo || '';
+      if (!citta) return;
+      const geo = await fetch('https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(citta) + '&format=json&limit=1').then(r => r.json());
+      if (!geo?.[0]) return;
+      const w = await fetch('https://api.open-meteo.com/v1/forecast?latitude=' + geo[0].lat + '&longitude=' + geo[0].lon + '&current_weather=true').then(r => r.json());
+      const temp = Math.round(w.current_weather?.temperature);
+      const wcode = w.current_weather?.weathercode;
+      const icona = wcode <= 1 ? '☀️' : wcode <= 3 ? '⛅' : wcode <= 67 ? '🌧️' : '🌨️';
+      const badge = document.getElementById('meteo-badge');
+      if (badge) { badge.textContent = icona + ' ' + temp + '°C'; badge.style.display = 'block'; }
+    } catch(_) {}
+  }
+
+  // ═══════════════════════════════════════
+  // COUNTDOWN
+  // ═══════════════════════════════════════
+  function startCountdown(target) {
+    function tick() {
+      const diff = target - new Date();
+      if (diff <= 0) { document.getElementById('countdown-sec')?.remove(); return; }
+      const gg = Math.floor(diff / 86400000);
+      const hh = Math.floor((diff % 86400000) / 3600000);
+      const mm = Math.floor((diff % 3600000) / 60000);
+      const ss = Math.floor((diff % 60000) / 1000);
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = String(v).padStart(2,'0'); };
+      set('cd-gg', gg); set('cd-hh', hh); set('cd-mm', mm); set('cd-ss', ss);
+    }
+    tick(); setInterval(tick, 1000);
+  }
+
+  // ═══════════════════════════════════════
+  // TOAST
+  // ═══════════════════════════════════════
+  function mostraToast(msg) {
+    const t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.3);';
+    document.body.appendChild(t);
+    setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 300); }, 2500);
+  }
+
+  // ═══════════════════════════════════════
+  // UTILS
+  // ═══════════════════════════════════════
+  function getStatoBiglietto(stato) {
+    return {
+      non_attivato: { label: 'Non attivato', emoji: '🔒', bg: '#fef3c7', col: '#92400e' },
+      attivo:       { label: 'Attivo',        emoji: '✅', bg: '#dcfce7', col: '#166534' },
+      esaurito:     { label: 'Esaurito',      emoji: '🏁', bg: '#e5e7eb', col: '#374151' },
+      annullato:    { label: 'Annullato',     emoji: '⛔', bg: '#fee2e2', col: '#991b1b' },
+    }[stato] || { label: stato, emoji: '❓', bg: '#f3f4f6', col: '#374151' };
+  }
+
+  function getTipoLabel(tipo) {
+    return { ingresso: 'Ingresso', consumazione: 'A consumazione', pacchetti: 'Multi-pacchetto' }[tipo] || tipo;
+  }
+
+  function formatData(d) {
+    if (!d) return '--';
+    return new Date(d).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+  function formatOra(d) {
+    if (!d) return '--';
+    return new Date(d).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  }
+  function getDayName(d) {
+    if (!d) return '';
+    const giorni = ['domenica','lunedì','martedì','mercoledì','giovedì','venerdì','sabato'];
+    return giorni[new Date(d).getDay()];
+  }
+  function tryJSON(s) { try { return JSON.parse(s); } catch(_) { return null; } }
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+  }
+  function showError(title, sub) {
+    root.innerHTML = '<div class="error-page"><div style="font-size:56px;">😟</div><div style="font-size:20px;font-weight:800;">' + esc(title) + '</div><div style="font-size:14px;color:#6b7280;">' + esc(sub) + '</div></div>';
+  }
+
+})();
+</script>
+</body>
+</html>
