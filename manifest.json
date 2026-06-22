@@ -1,0 +1,12 @@
+{
+  "name": "Tasting — Ristoflow",
+  "short_name": "Tasting",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F5F3FF",
+  "theme_color": "#7C3AED",
+  "icons": [
+    { "src": "logo tasting.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "logo tasting.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
