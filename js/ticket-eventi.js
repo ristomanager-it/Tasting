@@ -145,6 +145,20 @@ export async function render(container) {
   window._tastingDeleteEvento = (id) => eliminaEvento(id);
   window._tastingToggleStato = (id, stato) => toggleStato(id, stato);
 
+  window._tastingAggiornaTipo = function(tipo) {
+    const box = document.getElementById('tipo-desc-box');
+    if (!box) return;
+    const cfg = {
+      ingresso: { bg:'#ede9fe', col:'#5b21b6', icon:'🎫', testo:'<strong>Ingresso unico</strong> — Il cliente compra il biglietto, riceve il QR e lo scansiona all&#39;ingresso per entrare. Nessuna postazione, nessun contatore. Ideale per concerti, conferenze, spettacoli.' },
+      consumazione: { bg:'#fef3c7', col:'#92400e', icon:'🍽️', testo:'<strong>A consumazione — prezzo unico</strong> — Il cliente paga una cifra fissa e riceve X consumazioni totali. Gira le postazioni liberamente, ogni scan scala 1 consumazione. L&#39;admin imposta quante consumazioni include il biglietto. Ideale per sagre, feste della pizza/birra con percorso libero.' },
+      pacchetti: { bg:'#e6faf7', col:'#0d7a6e', icon:'🎟️', testo:'<strong>Multi-pacchetto</strong> — Il cliente sceglie tra pacchetti diversi (Basic 5 cons. €9 / Full 10 cons. €14 / VIP illimitato €25). Ideale per degustazioni con offerte differenziate, eventi premium dove vuoi dare scelta.' },
+    };
+    const c = cfg[tipo] || cfg.ingresso;
+    box.style.background = c.bg;
+    box.style.color = c.col;
+    box.innerHTML = c.icon + ' ' + c.testo;
+  };
+
   await caricaKPI();
   await caricaLista('tutti');
 }
@@ -218,8 +232,8 @@ async function caricaLista(filtro = 'tutti') {
     const percFill = disponibili > 0 ? Math.round((venduti / disponibili) * 100) : 0;
     const statoCol = { bozza:'#888', pubblicato:T, concluso:V, annullato:'#e53e3e' }[e.stato] || '#888';
     const statoLabel = { bozza:'Bozza', pubblicato:'Pubblicato', concluso:'Concluso', annullato:'Annullato' }[e.stato] || e.stato;
-    const tipoCol = e.tipo === 'consumazione' ? A : V;
-    const tipoLabel = e.tipo === 'consumazione' ? '🍕 Consumazione' : '🎫 Ingresso';
+    const tipoCol = e.tipo === 'consumazione' ? A : e.tipo === 'pacchetti' ? T : V;
+    const tipoLabel = e.tipo === 'consumazione' ? '🍽️ Consumazione' : e.tipo === 'pacchetti' ? '🎟️ Multi-pacchetto' : '🎫 Ingresso';
 
     return `
       <div style="background:#fff;border:1px solid #eee;border-radius:14px;overflow:hidden;display:flex;gap:0">
@@ -380,10 +394,12 @@ function renderTabInfo(body) {
 
       <div>
         <label style="font-size:12px;color:#666;font-weight:500">Tipo evento *</label>
-        <select id="ev-tipo" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box">
-          <option value="ingresso" ${e.tipo === 'ingresso' ? 'selected' : ''}>🎫 Ingresso semplice</option>
-          <option value="consumazione" ${e.tipo === 'consumazione' ? 'selected' : ''}>🍕 A consumazione</option>
+        <select id="ev-tipo" onchange="window._tastingAggiornaTipo(this.value)" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box">
+          <option value="ingresso" ${e.tipo === 'ingresso' ? 'selected' : ''}>🎫 Ingresso unico</option>
+          <option value="consumazione" ${e.tipo === 'consumazione' ? 'selected' : ''}>🍽️ A consumazione (prezzo unico)</option>
+          <option value="pacchetti" ${e.tipo === 'pacchetti' ? 'selected' : ''}>🎟️ Multi-pacchetto (prezzi diversi)</option>
         </select>
+        <div id="tipo-desc-box" style="margin-top:8px;border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.5;"></div>
       </div>
       <div>
         <label style="font-size:12px;color:#666;font-weight:500">Slug URL *</label>
@@ -460,6 +476,10 @@ function renderTabInfo(body) {
     </div>
   `;
 
+  // Inizializza box descrizione tipo
+  const tipoInit = document.getElementById('ev-tipo')?.value || 'ingresso';
+  if (window._tastingAggiornaTipo) window._tastingAggiornaTipo(tipoInit);
+
   const nomeEl = document.getElementById('ev-nome');
   const slugEl = document.getElementById('ev-slug');
   if (nomeEl && !eventoCorrente) {
@@ -531,6 +551,18 @@ async function renderTabCategorie(body) {
         <div style="font-size:12px;color:#888;margin-top:2px">Es. Ingresso €10, 3 Pizze €9, 5 Pizze + Vino €14, VIP €25</div>
       </div>
       <button onclick="window._tastingNuovaCategoria()" style="background:${V};color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer">+ Aggiungi</button>
+    </div>
+    <div id="cat-tipo-info" style="margin-bottom:14px;border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.5;${
+      eventoCorrente.tipo === 'ingresso' ? 'background:#ede9fe;color:#5b21b6;' :
+      eventoCorrente.tipo === 'consumazione' ? 'background:#fef3c7;color:#92400e;' :
+      'background:#e6faf7;color:#0d7a6e;'
+    }">
+      ${eventoCorrente.tipo === 'ingresso'
+        ? '🎫 <strong>Ingresso unico</strong> — Crea una sola categoria con il prezzo del biglietto. Il cliente paga, riceve il QR e lo scansiona all&#39;ingresso.'
+        : eventoCorrente.tipo === 'consumazione'
+        ? '🍽️ <strong>A consumazione</strong> — Crea una categoria con prezzo fisso e numero di consumazioni incluse. Es: €14 — 10 consumazioni libere tra tutte le postazioni.'
+        : '🎟️ <strong>Multi-pacchetto</strong> — Crea più categorie con prezzi e consumazioni diverse. Es: Basic €9 (5 cons.) / Full €14 (10 cons.) / VIP €25 (illimitato).'
+      }
     </div>
     <div id="lista-categorie">
       ${!cats?.length ? `<div style="text-align:center;padding:40px;color:#aaa;background:#fafafa;border-radius:10px">Nessuna categoria — aggiungi la prima</div>` :
@@ -937,10 +969,11 @@ async function renderTabPostazioni(body) {
     body.innerHTML = `<div style="text-align:center;padding:40px;color:#aaa">Salva prima l'evento per aggiungere postazioni</div>`;
     return;
   }
-  if (eventoCorrente.tipo !== 'consumazione') {
+  if (eventoCorrente.tipo === 'ingresso') {
     body.innerHTML = `<div style="text-align:center;padding:40px;color:#aaa;background:#fafafa;border-radius:10px">
       <div style="font-size:32px;margin-bottom:10px">🎫</div>
-      Le postazioni sono disponibili solo per eventi di tipo <strong>A consumazione</strong>
+      <div>Le postazioni non sono necessarie per eventi di tipo <strong>Ingresso unico</strong></div>
+      <div style="font-size:12px;margin-top:8px;color:#bbb">Cambia il tipo evento in Consumazione o Multi-pacchetto per abilitare le postazioni</div>
     </div>`;
     return;
   }
@@ -1470,7 +1503,7 @@ async function salvaEvento() {
     nome,
     slug,
     sottotitolo: document.getElementById('ev-sottotitolo')?.value.trim() || null,
-    tipo: document.getElementById('ev-tipo')?.value || 'ingresso',
+    tipo: document.getElementById('ev-tipo')?.value || 'ingresso', // valori: ingresso | consumazione | pacchetti
     data_inizio: dataInizio,
     data_fine: dataFine,
     luogo: document.getElementById('ev-luogo')?.value.trim() || null,
