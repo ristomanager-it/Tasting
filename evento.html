@@ -233,7 +233,7 @@
   async function init() {
     const { data: ev, error } = await supa
       .from('ticket_eventi')
-      .select('*, aziende(nome, logo_url, colore_brand, telefono, indirizzo, citta, stripe_publishable_key, stripe_attivo)')
+      .select('*, aziende_pubbliche(nome, logo_url, colore_brand, telefono, indirizzo, citta, stripe_publishable_key, stripe_attivo)')
       .eq('slug', slug)
       .eq('stato', 'pubblicato')
       .maybeSingle();
