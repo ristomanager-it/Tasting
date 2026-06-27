@@ -209,6 +209,36 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+// ── Ristoflow Analytics ────────────────────────────────────
+(function(){
+  var SID = sessionStorage.getItem('rf_sid') || (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
+  sessionStorage.setItem('rf_sid', SID);
+  var p = new URLSearchParams(location.search);
+  window._rfTrack = function(tipo, elemento, extra) {
+    fetch('https://cuhcscpvhypoaplcmtjk.supabase.co/functions/v1/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({
+        azienda_id: window._rfAzId || null,
+        sede_id: null,
+        pagina: 'evento',
+        pagina_id: window._rfEventoId || null,
+        tipo: tipo,
+        elemento: elemento || null,
+        referrer: document.referrer || null,
+        utm_source: p.get('utm_source'),
+        utm_medium: p.get('utm_medium'),
+        utm_campaign: p.get('utm_campaign'),
+        device: /Mobi/.test(navigator.userAgent) ? 'mobile' : 'desktop',
+        session_id: SID
+      }, extra || {}))
+    }).catch(function(){});
+  };
+  window._rfAzId = null;
+  window._rfEventoId = null;
+})();
+</script>
+<script>
 (function() {
   const SUPA_URL = 'https://cuhcscpvhypoaplcmtjk.supabase.co';
   const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1aGNzY3B2aHlwb2FwbGNtdGprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4MjY4MjgsImV4cCI6MjA3OTQwMjgyOH0.q9zAs0oh8F1-whtORHBIORF5jIn1NTS3LvSMWleP0a0';
@@ -241,6 +271,11 @@
     if (error || !ev) { showError('Evento non trovato', 'L\'evento non è disponibile o non è ancora pubblicato.'); return; }
     evento = ev;
     azienda = ev.aziende || {};
+
+    // Init tracking con dati reali
+    window._rfAzId = ev.azienda_id || null;
+    window._rfEventoId = ev.id || null;
+    window._rfTrack && window._rfTrack('view', 'evento_landing', { completato: false, valore: ev.nome });
 
     // Brand color
     if (azienda.colore_brand) {
@@ -493,6 +528,7 @@
     });
     const ctaPrezzo = document.getElementById('cta-prezzo');
     if (ctaPrezzo) ctaPrezzo.textContent = '€' + parseFloat(selectedCat.prezzo).toFixed(2);
+    window._rfTrack && window._rfTrack('click', 'seleziona_biglietto', { valore: selectedCat.nome + ' €' + selectedCat.prezzo, step: 'selezione_categoria' });
   };
 
   // ═══════════════════════════════════════════════
@@ -503,6 +539,7 @@
     document.querySelectorAll('.slot-item').forEach(el => {
       el.classList.toggle('selected', el.dataset.slotId === slotId);
     });
+    window._rfTrack && window._rfTrack('click', 'seleziona_slot', { valore: selectedSlot?.ora_inizio?.slice(0,5) || slotId, step: 'selezione_slot' });
   };
 
   // ═══════════════════════════════════════════════
@@ -560,6 +597,7 @@
 
     document.getElementById('modal-checkout').classList.add('open');
     document.body.style.overflow = 'hidden';
+    window._rfTrack && window._rfTrack('click', 'apri_checkout', { step: 'checkout_aperto', valore: selectedCat?.nome + ' €' + selectedCat?.prezzo });
 
     // Carica Stripe se disponibile
     if (azienda.stripe_publishable_key && azienda.stripe_attivo) {
@@ -609,8 +647,11 @@
     const email = document.getElementById('ck-email').value.trim();
     const tel = document.getElementById('ck-tel').value.trim();
 
+    window._rfTrack && window._rfTrack('click', 'btn_paga', { step: 'submit_tentativo', valore: selectedCat?.nome });
+
     if (!nome || !cognome || !email) {
       mostraErrCk('Compila nome, cognome ed email');
+      window._rfTrack && window._rfTrack('error', 'validazione_fallita', { step: 'checkout', valore: 'dati mancanti' });
       return;
     }
 
@@ -652,6 +693,7 @@
             }
           },
         });
+        window._rfTrack && window._rfTrack('step', 'redirect_stripe', { step: 'stripe_checkout', valore: selectedCat.nome + ' x' + qty + ' €' + totale.toFixed(2) });
         if (strErr) throw strErr;
       } else {
         // Pagamento non disponibile — crea biglietti e vai a gruppo.html
@@ -670,6 +712,7 @@
         }));
         await supa.from('ticket_biglietti').insert(insertData);
         await supa.from('ticket_ordini').update({ stato: 'pagato' }).eq('id', ordine.id);
+        window._rfTrack && window._rfTrack('submit', 'acquisto_completato', { completato: true, step: 'success', valore: selectedCat.nome + ' x' + qty + ' €' + totale.toFixed(2) });
         chiudiCheckout();
         // Redirect a gruppo.html
         if (qty === 1) {
@@ -683,6 +726,7 @@
       }
     } catch (err) {
       mostraErrCk(err.message || 'Errore nel pagamento. Riprova.');
+      window._rfTrack && window._rfTrack('error', 'errore_pagamento', { step: 'checkout', valore: err.message || 'errore sconosciuto' });
       btn.disabled = false;
       btn.textContent = '💳 Procedi al pagamento';
     }
