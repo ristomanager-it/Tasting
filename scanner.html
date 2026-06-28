@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0E5A7A">
+<title>Scanner — Ristoflow Tasting</title>
+<link rel="manifest" href="manifest.json">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{
+  --brand:#0E5A7A;--brand-dark:#0a4560;
+  --ok:#16a34a;--err:#dc2626;--warn:#d97706;
+  --bg:#0a0a0a;--surface:#1a1a1a;--border:#2a2a2a;
+  --text:#ffffff;--text-2:#a0a0a0;
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;overflow-x:hidden;}
+
+/* ── LOGIN ── */
+#screen-login{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
+.login-logo{font-size:48px;margin-bottom:8px;}
+.login-title{font-size:24px;font-weight:800;margin-bottom:4px;}
+.login-sub{font-size:14px;color:var(--text-2);margin-bottom:32px;}
+.pin-display{display:flex;gap:10px;margin-bottom:24px;}
+.pin-dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--border);background:transparent;transition:all .15s;}
+.pin-dot.filled{background:var(--brand);border-color:var(--brand);}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;width:240px;}
+.pin-btn{height:64px;border-radius:16px;border:1.5px solid var(--border);background:var(--surface);font-size:22px;font-weight:700;color:var(--text);cursor:pointer;transition:all .1s;display:flex;align-items:center;justify-content:center;}
+.pin-btn:active{background:var(--brand);border-color:var(--brand);transform:scale(.95);}
+.pin-btn.del{font-size:18px;color:var(--text-2);}
+#login-error{color:var(--err);font-size:13px;margin-top:12px;text-align:center;min-height:18px;}
+
+/* ── HEADER ── */
+#app-header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;}
+.header-evento{font-size:13px;font-weight:700;color:var(--text);flex:1;}
+.header-sub{font-size:11px;color:var(--text-2);}
+.btn-logout{background:none;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--text-2);cursor:pointer;}
+
+/* ── SCANNER ── */
+#screen-scanner{display:none;flex-direction:column;min-height:100vh;}
+#camera-wrap{position:relative;width:100%;background:#000;flex:0 0 auto;}
+#camera-video{width:100%;display:block;max-height:60vh;object-fit:cover;}
+#camera-canvas{display:none;}
+.scan-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;}
+.scan-frame{width:220px;height:220px;position:relative;}
+.scan-frame::before,.scan-frame::after{content:'';position:absolute;width:40px;height:40px;border-color:white;border-style:solid;}
+.scan-frame::before{top:0;left:0;border-width:3px 0 0 3px;border-radius:4px 0 0 0;}
+.scan-frame::after{bottom:0;right:0;border-width:0 3px 3px 0;border-radius:0 0 4px 0;}
+.scan-frame-tr{position:absolute;top:0;right:0;width:40px;height:40px;border-top:3px solid white;border-right:3px solid white;border-radius:0 4px 0 0;}
+.scan-frame-bl{position:absolute;bottom:0;left:0;width:40px;height:40px;border-bottom:3px solid white;border-left:3px solid white;border-radius:0 0 0 4px;}
+.scan-line{position:absolute;left:10px;right:10px;height:2px;background:linear-gradient(90deg,transparent,var(--brand),transparent);animation:scan 2s linear infinite;}
+@keyframes scan{0%{top:10px}100%{top:calc(100% - 10px)}}
+.scan-status{position:absolute;bottom:12px;left:0;right:0;text-align:center;font-size:13px;font-weight:600;color:white;text-shadow:0 1px 3px rgba(0,0,0,.8);}
+
+/* ── RESULT CARD ── */
+#result-wrap{flex:1;overflow-y:auto;padding:16px;}
+#result-card{display:none;}
+.result-header{border-radius:16px;padding:20px;margin-bottom:12px;text-align:center;}
+.result-header.ok{background:linear-gradient(135deg,#16a34a,#15803d);}
+.result-header.err{background:linear-gradient(135deg,#dc2626,#b91c1c);}
+.result-header.warn{background:linear-gradient(135deg,#d97706,#b45309);}
+.result-icon{font-size:48px;margin-bottom:8px;}
+.result-stato{font-size:20px;font-weight:800;margin-bottom:4px;}
+.result-nome{font-size:15px;opacity:.9;}
+.info-card{background:var(--surface);border-radius:14px;padding:16px;margin-bottom:10px;}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);}
+.info-row:last-child{border-bottom:none;}
+.info-label{font-size:12px;color:var(--text-2);font-weight:600;}
+.info-val{font-size:13px;font-weight:700;color:var(--text);}
+.cons-wrap{background:var(--surface);border-radius:14px;padding:16px;margin-bottom:10px;}
+.cons-title{font-size:13px;font-weight:700;color:var(--text-2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;}
+.cons-bar-wrap{background:var(--border);border-radius:8px;height:12px;overflow:hidden;margin-bottom:10px;}
+.cons-bar{height:100%;border-radius:8px;background:linear-gradient(90deg,var(--brand),#00c896);transition:width .4s;}
+.cons-count{font-size:22px;font-weight:800;text-align:center;margin-bottom:12px;}
+.cons-count span{font-size:14px;font-weight:400;color:var(--text-2);}
+.btn-scala{width:100%;padding:14px;border-radius:12px;border:none;background:var(--brand);color:white;font-size:15px;font-weight:700;cursor:pointer;transition:all .15s;}
+.btn-scala:active{transform:scale(.97);}
+.btn-scala:disabled{background:var(--border);color:var(--text-2);}
+.btn-nuovo-scan{width:100%;padding:14px;border-radius:12px;border:1.5px solid var(--border);background:transparent;color:var(--text);font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;}
+
+/* ── MANUAL INPUT ── */
+.btn-manual{position:absolute;top:12px;right:12px;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:6px 10px;font-size:12px;color:white;cursor:pointer;}
+#manual-wrap{padding:16px;display:none;}
+#manual-input{width:100%;padding:14px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:16px;outline:none;font-family:inherit;}
+#manual-input::placeholder{color:var(--text-2);}
+.btn-manual-cerca{width:100%;padding:13px;border-radius:12px;border:none;background:var(--brand);color:white;font-size:15px;font-weight:700;cursor:pointer;margin-top:10px;}
+
+/* ── FLASH ── */
+#flash{position:fixed;inset:0;z-index:999;pointer-events:none;opacity:0;transition:opacity .1s;}
+#flash.ok{background:rgba(22,163,74,.4);}
+#flash.err{background:rgba(220,38,38,.4);}
+
+/* ── STATS ── */
+#stats-bar{background:var(--surface);border-top:1px solid var(--border);padding:10px 16px;display:flex;gap:0;}
+.stat-item{flex:1;text-align:center;}
+.stat-val{font-size:18px;font-weight:800;color:var(--text);}
+.stat-lab{font-size:10px;color:var(--text-2);text-transform:uppercase;letter-spacing:.5px;}
+</style>
+</head>
+<body>
+
+<!-- ── LOGIN ── -->
+<div id="screen-login">
+  <div class="login-logo">🎟️</div>
+  <div class="login-title">Ristoflow Tasting</div>
+  <div class="login-sub">Scanner biglietti</div>
+  <div class="pin-display" id="pin-display">
+    <div class="pin-dot" id="dot-0"></div>
+    <div class="pin-dot" id="dot-1"></div>
+    <div class="pin-dot" id="dot-2"></div>
+    <div class="pin-dot" id="dot-3"></div>
+  </div>
+  <div class="pin-pad">
+    <button class="pin-btn" onclick="pinDigit('1')">1</button>
+    <button class="pin-btn" onclick="pinDigit('2')">2</button>
+    <button class="pin-btn" onclick="pinDigit('3')">3</button>
+    <button class="pin-btn" onclick="pinDigit('4')">4</button>
+    <button class="pin-btn" onclick="pinDigit('5')">5</button>
+    <button class="pin-btn" onclick="pinDigit('6')">6</button>
+    <button class="pin-btn" onclick="pinDigit('7')">7</button>
+    <button class="pin-btn" onclick="pinDigit('8')">8</button>
+    <button class="pin-btn" onclick="pinDigit('9')">9</button>
+    <button class="pin-btn" onclick="pinDigit('')">  </button>
+    <button class="pin-btn" onclick="pinDigit('0')">0</button>
+    <button class="pin-btn del" onclick="pinDel()">⌫</button>
+  </div>
+  <div id="login-error"></div>
+</div>
+
+<!-- ── SCANNER APP ── -->
+<div id="screen-scanner">
+  <div id="app-header">
+    <div>
+      <div class="header-evento" id="header-evento">Caricamento...</div>
+      <div class="header-sub" id="header-sub"></div>
+    </div>
+    <button class="btn-logout" onclick="logout()">Esci</button>
+  </div>
+
+  <div id="camera-wrap">
+    <video id="camera-video" autoplay playsinline muted></video>
+    <canvas id="camera-canvas"></canvas>
+    <div class="scan-overlay">
+      <div class="scan-frame">
+        <div class="scan-frame-tr"></div>
+        <div class="scan-frame-bl"></div>
+        <div class="scan-line" id="scan-line"></div>
+      </div>
+    </div>
+    <div class="scan-status" id="scan-status">Inquadra il QR code</div>
+    <button class="btn-manual" onclick="toggleManual()">✏️ Manuale</button>
+  </div>
+
+  <div id="manual-wrap">
+    <input id="manual-input" type="text" placeholder="Incolla codice QR o token..." autocomplete="off">
+    <button class="btn-manual-cerca" onclick="cercaManuale()">🔍 Cerca</button>
+  </div>
+
+  <div id="result-wrap">
+    <div id="result-card"></div>
+  </div>
+
+  <div id="stats-bar">
+    <div class="stat-item">
+      <div class="stat-val" id="stat-tot">0</div>
+      <div class="stat-lab">Entrati</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-val" id="stat-cons">0</div>
+      <div class="stat-lab">Consumazioni</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-val" id="stat-err">0</div>
+      <div class="stat-lab">Errori</div>
+    </div>
+  </div>
+</div>
+
+<div id="flash"></div>
+
+<script>
+const SUPABASE_URL = 'https://cuhcscpvhypoaplcmtjk.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1aGNzY3B2aHlwb2FwbGNtdGprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4MjY4MjgsImV4cCI6MjA3OTQwMjgyOH0.q9zAs0oh8F1-whtORHBIORF5jIn1NTS3LvSMWleP0a0';
+const supa = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── State ─────────────────────────────────────────────────────────────────
+var PIN = '';
+var _operatore = null;
+var _evento = null;
+var _scanning = true;
+var _lastQR = '';
+var _lastQRTime = 0;
+var _stats = { entrati: 0, consumazioni: 0, errori: 0 };
+var _audioCtx = null;
+
+// ── PIN Login ─────────────────────────────────────────────────────────────
+function pinDigit(d) {
+  if (!d || PIN.length >= 4) return;
+  PIN += d;
+  aggiornaPin();
+  if (PIN.length === 4) setTimeout(verificaPin, 200);
+}
+
+function pinDel() {
+  PIN = PIN.slice(0, -1);
+  aggiornaPin();
+}
+
+function aggiornaPin() {
+  for (var i = 0; i < 4; i++) {
+    document.getElementById('dot-' + i).classList.toggle('filled', i < PIN.length);
+  }
+}
+
+async function verificaPin() {
+  document.getElementById('login-error').textContent = '';
+  // Cerca operatore con questo PIN nel gestionale
+  var { data: op, error } = await supa
+    .from('profili')
+    .select('id, nome, azienda_id, ruolo, pin_scanner')
+    .eq('pin_scanner', PIN)
+    .maybeSingle();
+
+  if (error || !op) {
+    // Prova anche pin standard (colonna pin)
+    var { data: op2 } = await supa
+      .from('profili')
+      .select('id, nome, azienda_id, ruolo')
+      .eq('pin', PIN)
+      .maybeSingle();
+    op = op2;
+  }
+
+  if (!op) {
+    document.getElementById('login-error').textContent = 'PIN non valido';
+    PIN = '';
+    aggiornaPin();
+    vibrazioneErr();
+    return;
+  }
+
+  _operatore = op;
+  sessionStorage.setItem('scanner_op', JSON.stringify(op));
+
+  // Cerca evento attivo per questa azienda
+  var { data: eventi } = await supa
+    .from('ticket_eventi')
+    .select('id, nome, data_evento, ticket_categorie_prezzo(tipo)')
+    .eq('azienda_id', op.azienda_id)
+    .eq('stato', 'pubblicato')
+    .order('data_evento', { ascending: true })
+    .limit(5);
+
+  if (!eventi || !eventi.length) {
+    document.getElementById('login-error').textContent = 'Nessun evento attivo trovato';
+    PIN = '';
+    aggiornaPin();
+    return;
+  }
+
+  // Se più eventi mostra selezione, altrimenti entra direttamente
+  if (eventi.length === 1) {
+    avviaScanner(op, eventi[0]);
+  } else {
+    mostraSelezionaEvento(op, eventi);
+  }
+}
+
+function mostraSelezionaEvento(op, eventi) {
+  document.getElementById('screen-login').innerHTML =
+    '<div style="padding:24px;max-width:400px;margin:0 auto;">' +
+    '<div style="font-size:20px;font-weight:800;margin-bottom:4px;">Seleziona evento</div>' +
+    '<div style="font-size:13px;color:var(--text-2);margin-bottom:20px;">Ciao ' + esc(op.nome || 'Operatore') + '!</div>' +
+    eventi.map(function(e) {
+      return '<button onclick="avviaScanner(' + JSON.stringify(op).replace(/"/g, "'") + ',' + JSON.stringify(e).replace(/"/g, "'") + ')" ' +
+        'style="width:100%;padding:16px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);' +
+        'text-align:left;cursor:pointer;margin-bottom:10px;">' +
+        '<div style="font-size:15px;font-weight:700;">' + esc(e.nome) + '</div>' +
+        '<div style="font-size:12px;color:var(--text-2);margin-top:4px;">' + (e.data_evento ? new Date(e.data_evento).toLocaleDateString('it-IT', {weekday:'long',day:'numeric',month:'long'}) : '') + '</div>' +
+        '</button>';
+    }).join('') +
+    '</div>';
+}
+
+async function avviaScanner(op, evento) {
+  _operatore = op;
+  _evento = evento;
+  document.getElementById('screen-login').style.display = 'none';
+  document.getElementById('screen-scanner').style.display = 'flex';
+  document.getElementById('screen-scanner').style.flexDirection = 'column';
+  document.getElementById('header-evento').textContent = evento.nome;
+  document.getElementById('header-sub').textContent = op.nome || 'Operatore';
+  avviaCamera();
+}
+
+function logout() {
+  if (!confirm('Esci dallo scanner?')) return;
+  sessionStorage.removeItem('scanner_op');
+  location.reload();
+}
+
+// ── Camera & QR Scan ─────────────────────────────────────────────────────
+async function avviaCamera() {
+  var video = document.getElementById('camera-video');
+  var canvas = document.getElementById('camera-canvas');
+  try {
+    var stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+    video.srcObject = stream;
+    video.play();
+    video.addEventListener('loadedmetadata', function() {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      requestAnimationFrame(scanFrame);
+    });
+  } catch (e) {
+    document.getElementById('scan-status').textContent = '⚠️ Camera non disponibile';
+    document.getElementById('manual-wrap').style.display = 'block';
+  }
+}
+
+function scanFrame() {
+  var video = document.getElementById('camera-video');
+  var canvas = document.getElementById('camera-canvas');
+  if (video.readyState === video.HAVE_ENOUGH_DATA) {
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    var code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+    if (code && code.data) {
+      var now = Date.now();
+      // Evita doppia scansione entro 3 secondi
+      if (code.data !== _lastQR || now - _lastQRTime > 3000) {
+        _lastQR = code.data;
+        _lastQRTime = now;
+        if (_scanning) processaQR(code.data);
+      }
+    }
+  }
+  requestAnimationFrame(scanFrame);
+}
+
+// ── Processa QR ───────────────────────────────────────────────────────────
+async function processaQR(qrData) {
+  _scanning = false;
+  document.getElementById('scan-status').textContent = '⏳ Verifica in corso...';
+  document.getElementById('scan-line').style.animationPlayState = 'paused';
+
+  // Estrai token dal QR (può essere URL o token diretto)
+  var token = qrData;
+  if (qrData.includes('t=')) {
+    var m = qrData.match(/[?&]t=([^&]+)/);
+    if (m) token = m[1];
+  } else if (qrData.includes('/biglietto')) {
+    var m2 = qrData.split('/').pop();
+    if (m2) token = m2;
+  }
+
+  // Cerca biglietto per token_pubblico o qr_code
+  var { data: biglietto, error } = await supa
+    .from('ticket_biglietti')
+    .select(`
+      id, qr_code, token_pubblico, stato, nome_partecipante,
+      consumazioni_totali, consumazioni_usate, attivato_at,
+      evento_id, slot_id, categoria_id,
+      ticket_categorie_prezzo(id, nome, tipo, prezzo),
+      ticket_slot(data, ora_inizio, ora_fine)
+    `)
+    .or('token_pubblico.eq.' + token + ',qr_code.eq.' + token)
+    .maybeSingle();
+
+  if (error || !biglietto) {
+    mostraErrore('QR non riconosciuto', 'Biglietto non trovato nel sistema.');
+    return;
+  }
+
+  // Verifica che sia dello stesso evento
+  if (_evento && biglietto.evento_id !== _evento.id) {
+    mostraErrore('Evento diverso', 'Questo biglietto è per un altro evento.');
+    return;
+  }
+
+  // Gestisci in base allo stato
+  if (biglietto.stato === 'annullato') {
+    mostraErrore('Biglietto annullato', 'Questo biglietto è stato annullato.');
+    return;
+  }
+
+  if (biglietto.stato === 'usato' && biglietto.ticket_categorie_prezzo?.tipo === 'ingresso') {
+    mostraErrore('Già entrato', 'Questo biglietto è già stato utilizzato il ' + formatData(biglietto.attivato_at));
+    return;
+  }
+
+  // Primo ingresso — segna come entrato
+  if (biglietto.stato === 'attivo' || biglietto.stato === 'pagato') {
+    await supa.from('ticket_biglietti').update({
+      stato: 'usato',
+      attivato_at: new Date().toISOString()
+    }).eq('id', biglietto.id);
+    biglietto.stato = 'usato';
+    biglietto.attivato_at = new Date().toISOString();
+    _stats.entrati++;
+    aggiornaStats();
+  }
+
+  mostraRisultato(biglietto);
+}
+
+// ── Mostra risultato ──────────────────────────────────────────────────────
+function mostraRisultato(b) {
+  var cat = b.ticket_categorie_prezzo;
+  var slot = b.ticket_slot;
+  var tipo = cat?.tipo || 'ingresso';
+  var consUsate = b.consumazioni_usate || 0;
+  var consTot = b.consumazioni_totali || 0;
+  var consRim = Math.max(0, consTot - consUsate);
+
+  var isConsumazione = tipo === 'consumazione';
+  var statoOk = b.stato === 'usato';
+
+  flashAnimation(statoOk ? 'ok' : 'err');
+  vibrazione(statoOk ? 'ok' : 'err');
+  suono(statoOk ? 'ok' : 'err');
+
+  document.getElementById('scan-status').textContent = '✅ Scannerizzato';
+
+  var html = '';
+
+  // Header risultato
+  html += '<div class="result-header ' + (statoOk ? 'ok' : 'err') + '">' +
+    '<div class="result-icon">' + (statoOk ? '✅' : '❌') + '</div>' +
+    '<div class="result-stato">' + (statoOk ? 'INGRESSO OK' : 'ACCESSO NEGATO') + '</div>' +
+    '<div class="result-nome">' + esc(b.nome_partecipante || 'Partecipante') + '</div>' +
+    '</div>';
+
+  // Info biglietto
+  html += '<div class="info-card">' +
+    rigaInfo('Categoria', cat?.nome || '—') +
+    rigaInfo('Tipo', tipo === 'consumazione' ? '🍸 Consumazione' : tipo === 'pacchetti' ? '📦 Pacchetto' : '🎫 Ingresso') +
+    (slot ? rigaInfo('Slot', formatOra(slot.ora_inizio) + ' – ' + formatOra(slot.ora_fine)) : '') +
+    rigaInfo('Ingresso', b.attivato_at ? formatDataOra(b.attivato_at) : '—') +
+    rigaInfo('Stato', b.stato) +
+    '</div>';
+
+  // Consumazioni (se tipo consumazione)
+  if (isConsumazione && statoOk) {
+    var pct = consTot > 0 ? Math.round((consUsate / consTot) * 100) : 0;
+    html += '<div class="cons-wrap">' +
+      '<div class="cons-title">Consumazioni</div>' +
+      '<div class="cons-count">' + consRim + ' <span>/ ' + consTot + ' rimanenti</span></div>' +
+      '<div class="cons-bar-wrap"><div class="cons-bar" style="width:' + pct + '%"></div></div>' +
+      (consRim > 0
+        ? '<button class="btn-scala" onclick="scalaConsumazione(\'' + b.id + '\',' + consUsate + ',' + consTot + ')">🍸 Scala consumazione</button>'
+        : '<button class="btn-scala" disabled>✅ Consumazioni esaurite</button>') +
+      '</div>';
+  }
+
+  // Bottone nuovo scan
+  html += '<button class="btn-nuovo-scan" onclick="nuovoScan()">📷 Scansiona altro</button>';
+
+  document.getElementById('result-card').innerHTML = html;
+  document.getElementById('result-card').style.display = 'block';
+  document.getElementById('result-wrap').scrollTop = 0;
+}
+
+function mostraErrore(titolo, msg) {
+  flashAnimation('err');
+  vibrazione('err');
+  suono('err');
+  _stats.errori++;
+  aggiornaStats();
+
+  document.getElementById('scan-status').textContent = '❌ ' + titolo;
+
+  var html = '<div class="result-header err">' +
+    '<div class="result-icon">❌</div>' +
+    '<div class="result-stato">' + esc(titolo) + '</div>' +
+    '<div class="result-nome">' + esc(msg) + '</div>' +
+    '</div>' +
+    '<button class="btn-nuovo-scan" onclick="nuovoScan()">📷 Scansiona altro</button>';
+
+  document.getElementById('result-card').innerHTML = html;
+  document.getElementById('result-card').style.display = 'block';
+}
+
+// ── Scala consumazione ────────────────────────────────────────────────────
+async function scalaConsumazione(bigliettoId, usate, totali) {
+  var nuoveUsate = usate + 1;
+  var { error } = await supa.from('ticket_biglietti')
+    .update({ consumazioni_usate: nuoveUsate })
+    .eq('id', bigliettoId);
+
+  if (error) { alert('Errore: ' + error.message); return; }
+
+  _stats.consumazioni++;
+  aggiornaStats();
+  suono('cons');
+  vibrazione('ok');
+
+  // Aggiorna UI
+  var consRim = totali - nuoveUsate;
+  var pct = Math.round((nuoveUsate / totali) * 100);
+  document.querySelector('.cons-count').innerHTML = consRim + ' <span>/ ' + totali + ' rimanenti</span>';
+  document.querySelector('.cons-bar').style.width = pct + '%';
+  if (consRim <= 0) {
+    document.querySelector('.btn-scala').disabled = true;
+    document.querySelector('.btn-scala').textContent = '✅ Consumazioni esaurite';
+  } else {
+    document.querySelector('.btn-scala').onclick = function(){ scalaConsumazione(bigliettoId, nuoveUsate, totali); };
+  }
+}
+
+// ── Nuovo scan ────────────────────────────────────────────────────────────
+function nuovoScan() {
+  _scanning = true;
+  _lastQR = '';
+  document.getElementById('result-card').style.display = 'none';
+  document.getElementById('result-card').innerHTML = '';
+  document.getElementById('scan-status').textContent = 'Inquadra il QR code';
+  document.getElementById('scan-line').style.animationPlayState = 'running';
+  document.getElementById('manual-input').value = '';
+}
+
+// ── Manuale ───────────────────────────────────────────────────────────────
+function toggleManual() {
+  var w = document.getElementById('manual-wrap');
+  w.style.display = w.style.display === 'none' ? 'block' : 'none';
+  if (w.style.display === 'block') document.getElementById('manual-input').focus();
+}
+
+function cercaManuale() {
+  var val = document.getElementById('manual-input').value.trim();
+  if (!val) return;
+  processaQR(val);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('manual-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') cercaManuale();
+  });
+});
+
+// ── Stats ─────────────────────────────────────────────────────────────────
+function aggiornaStats() {
+  document.getElementById('stat-tot').textContent = _stats.entrati;
+  document.getElementById('stat-cons').textContent = _stats.consumazioni;
+  document.getElementById('stat-err').textContent = _stats.errori;
+}
+
+// ── Audio & Vibrazione ────────────────────────────────────────────────────
+function getAudioCtx() {
+  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return _audioCtx;
+}
+
+function suono(tipo) {
+  try {
+    var ctx = getAudioCtx();
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    if (tipo === 'ok') {
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      osc.start(); osc.stop(ctx.currentTime + 0.3);
+    } else if (tipo === 'cons') {
+      osc.frequency.setValueAtTime(660, ctx.currentTime);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+      osc.start(); osc.stop(ctx.currentTime + 0.2);
+    } else {
+      osc.frequency.setValueAtTime(220, ctx.currentTime);
+      osc.frequency.setValueAtTime(180, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      osc.start(); osc.stop(ctx.currentTime + 0.4);
+    }
+  } catch(e) {}
+}
+
+function vibrazione(tipo) {
+  if (!navigator.vibrate) return;
+  if (tipo === 'ok') navigator.vibrate([100, 50, 100]);
+  else navigator.vibrate([300, 100, 300]);
+}
+
+function vibrazioneErr() {
+  if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+}
+
+function flashAnimation(tipo) {
+  var f = document.getElementById('flash');
+  f.className = tipo;
+  f.style.opacity = '1';
+  setTimeout(function(){ f.style.opacity = '0'; }, 300);
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function rigaInfo(label, val) {
+  return '<div class="info-row"><span class="info-label">'+esc(label)+'</span><span class="info-val">'+esc(val)+'</span></div>';
+}
+function formatData(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleDateString('it-IT', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+}
+function formatDataOra(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleString('it-IT', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+}
+function formatOra(t) {
+  if (!t) return '—';
+  return t.slice(0,5);
+}
+
+// ── Auto-login da sessione ────────────────────────────────────────────────
+(function(){
+  var saved = sessionStorage.getItem('scanner_op');
+  if (saved) {
+    try {
+      var op = JSON.parse(saved);
+      // Cerca evento attivo
+      var supa2 = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      supa2.from('ticket_eventi')
+        .select('id, nome, data_evento')
+        .eq('azienda_id', op.azienda_id)
+        .eq('stato', 'pubblicato')
+        .order('data_evento', { ascending: true })
+        .limit(5)
+        .then(function(res) {
+          var eventi = res.data || [];
+          if (eventi.length === 1) avviaScanner(op, eventi[0]);
+          else if (eventi.length > 1) mostraSelezionaEvento(op, eventi);
+        });
+    } catch(e) {}
+  }
+})();
+</script>
+</body>
+</html>
