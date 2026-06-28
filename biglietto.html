@@ -176,6 +176,36 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+// ── Ristoflow Analytics ────────────────────────────────────
+(function(){
+  var SID = sessionStorage.getItem('rf_sid') || (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
+  sessionStorage.setItem('rf_sid', SID);
+  var p = new URLSearchParams(location.search);
+  window._rfTrack = function(tipo, elemento, extra) {
+    fetch('https://cuhcscpvhypoaplcmtjk.supabase.co/functions/v1/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({
+        azienda_id: window._rfAzId || null,
+        sede_id: null,
+        pagina: 'biglietto',
+        pagina_id: window._rfEventoId || null,
+        tipo: tipo,
+        elemento: elemento || null,
+        referrer: document.referrer || null,
+        utm_source: p.get('utm_source'),
+        utm_medium: p.get('utm_medium'),
+        utm_campaign: p.get('utm_campaign'),
+        device: /Mobi/.test(navigator.userAgent) ? 'mobile' : 'desktop',
+        session_id: SID
+      }, extra || {}))
+    }).catch(function(){});
+  };
+  window._rfAzId = null;
+  window._rfEventoId = null;
+})();
+</script>
+<script>
 (function() {
   const SUPA_URL = 'https://cuhcscpvhypoaplcmtjk.supabase.co';
   const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1aGNzY3B2aHlwb2FwbGNtdGprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4MjY4MjgsImV4cCI6MjA3OTQwMjgyOH0.q9zAs0oh8F1-whtORHBIORF5jIn1NTS3LvSMWleP0a0';
@@ -214,6 +244,15 @@
     if (!ev) { showError('Evento non trovato', 'L\'evento associato non esiste.'); return; }
     evento = ev;
     azienda = ev.aziende || {};
+
+    // Init tracking
+    window._rfAzId = ev.azienda_id || null;
+    window._rfEventoId = ev.id || null;
+    window._rfTrack && window._rfTrack('view', 'biglietto_view', {
+      valore: ev.nome,
+      elemento: b.stato,
+      completato: b.stato === 'attivo'
+    });
 
     // Brand color
     if (azienda.colore_brand) document.documentElement.style.setProperty('--v', azienda.colore_brand);
@@ -421,7 +460,7 @@
       html += '<div style="font-size:13px;opacity:.85;line-height:1.5;margin-bottom:14px;">Condividi l&#39;evento con chi vuoi — più siete meglio è!</div>';
       html += '<div style="background:rgba(255,255,255,.15);border-radius:10px;padding:8px 12px;font-size:11px;font-family:monospace;word-break:break-all;margin-bottom:12px;text-align:left;">' + refUrl.substring(0,60) + '...</div>';
       html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
-      html += '<a href="https://wa.me/?text=' + waRef + '" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:6px;background:#25D366;color:#fff;border-radius:12px;padding:12px;text-decoration:none;font-size:13px;font-weight:800;">💬 WhatsApp</a>';
+      html += '<a href="https://wa.me/?text=' + waRef + '" target="_blank" onclick="window._rfTrack&&window._rfTrack(\'click\',\'referral_wa\',{valore:\''+esc(ev.slug||'')+'\',step:\'referral\'})" style="display:flex;align-items:center;justify-content:center;gap:6px;background:#25D366;color:#fff;border-radius:12px;padding:12px;text-decoration:none;font-size:13px;font-weight:800;">💬 WhatsApp</a>';
       html += '<button onclick="copiaLinkRef(\'' + esc(refUrl) + '\')" style="display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:800;cursor:pointer;">📋 Copia link</button>';
       html += '</div></div></div>';
     }
@@ -528,6 +567,7 @@
         .update({ stato: 'annullato' })
         .eq('token_pubblico', token);
       if (error) throw error;
+      window._rfTrack && window._rfTrack('click', 'biglietto_annullato', { step: 'annulla', completato: false });
       chiudiModal('annulla');
       root.innerHTML = '<div class="error-page"><div style="font-size:56px;">✅</div><div style="font-size:20px;font-weight:800;color:#374151;">Biglietto annullato</div><div style="font-size:14px;color:#6b7280;">Il tuo biglietto è stato annullato con successo.</div></div>';
     } catch(err) {
@@ -553,17 +593,14 @@
   // ═══════════════════════════════════════
   window.copiaLinkRef = function(url) {
     navigator.clipboard.writeText(url)
-      .then(() => mostraToast('🔗 Link copiato!'))
+      .then(() => { mostraToast('🔗 Link copiato!'); window._rfTrack && window._rfTrack('click', 'referral_copia_link', { valore: url.slice(-20), step: 'referral' }); })
       .catch(() => mostraToast('Copia il link manualmente'));
   };
 
   window.condividiBiglietto = function() {
+    window._rfTrack && window._rfTrack('click', 'condividi_biglietto', { step: 'azioni' });
     if (navigator.share) {
-      navigator.share({
-        title: 'Biglietto — ' + evento.nome,
-        text: 'Il mio biglietto per ' + evento.nome,
-        url: window.location.href
-      });
+      navigator.share({ title: 'Biglietto — ' + evento.nome, text: 'Il mio biglietto per ' + evento.nome, url: window.location.href });
     } else {
       navigator.clipboard.writeText(window.location.href);
       mostraToast('🔗 Link copiato!');
@@ -573,6 +610,7 @@
   window.scaricaBiglietto = function() {
     const canvas = document.querySelector('#qr-canvas canvas');
     if (!canvas) { mostraToast('QR non disponibile'); return; }
+    window._rfTrack && window._rfTrack('click', 'scarica_biglietto', { step: 'azioni' });
     const link = document.createElement('a');
     link.download = 'biglietto-' + evento.nome.toLowerCase().replace(/\s+/g, '-') + '.png';
     link.href = canvas.toDataURL();
