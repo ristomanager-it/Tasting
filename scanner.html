@@ -114,19 +114,19 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
     <div class="pin-dot" id="dot-2"></div>
     <div class="pin-dot" id="dot-3"></div>
   </div>
-  <div class="pin-pad">
-    <button class="pin-btn" onclick="pinDigit('1')">1</button>
-    <button class="pin-btn" onclick="pinDigit('2')">2</button>
-    <button class="pin-btn" onclick="pinDigit('3')">3</button>
-    <button class="pin-btn" onclick="pinDigit('4')">4</button>
-    <button class="pin-btn" onclick="pinDigit('5')">5</button>
-    <button class="pin-btn" onclick="pinDigit('6')">6</button>
-    <button class="pin-btn" onclick="pinDigit('7')">7</button>
-    <button class="pin-btn" onclick="pinDigit('8')">8</button>
-    <button class="pin-btn" onclick="pinDigit('9')">9</button>
-    <button class="pin-btn" onclick="pinDigit('')">  </button>
-    <button class="pin-btn" onclick="pinDigit('0')">0</button>
-    <button class="pin-btn del" onclick="pinDel()">⌫</button>
+  <div class="pin-pad" id="pin-pad">
+    <button class="pin-btn" data-digit="1">1</button>
+    <button class="pin-btn" data-digit="2">2</button>
+    <button class="pin-btn" data-digit="3">3</button>
+    <button class="pin-btn" data-digit="4">4</button>
+    <button class="pin-btn" data-digit="5">5</button>
+    <button class="pin-btn" data-digit="6">6</button>
+    <button class="pin-btn" data-digit="7">7</button>
+    <button class="pin-btn" data-digit="8">8</button>
+    <button class="pin-btn" data-digit="9">9</button>
+    <button class="pin-btn" data-digit="">　</button>
+    <button class="pin-btn" data-digit="0">0</button>
+    <button class="pin-btn del" data-digit="del">⌫</button>
   </div>
   <div id="login-error"></div>
 </div>
@@ -548,8 +548,32 @@ function cercaManuale() {
   processaQR(val);
 }
 
+// ── PIN pad event listeners ───────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
-  document.getElementById('manual-input').addEventListener('keydown', function(e) {
+  // PIN pad
+  document.getElementById('pin-pad').addEventListener('touchstart', function(e) {
+    e.preventDefault();
+    var btn = e.target.closest('[data-digit]');
+    if (!btn) return;
+    var d = btn.dataset.digit;
+    if (d === 'del') pinDel();
+    else if (d) pinDigit(d);
+    btn.style.background = 'var(--brand)';
+    btn.style.borderColor = 'var(--brand)';
+    setTimeout(function(){ btn.style.background=''; btn.style.borderColor=''; }, 150);
+  }, { passive: false });
+
+  document.getElementById('pin-pad').addEventListener('click', function(e) {
+    var btn = e.target.closest('[data-digit]');
+    if (!btn) return;
+    var d = btn.dataset.digit;
+    if (d === 'del') pinDel();
+    else if (d) pinDigit(d);
+  });
+
+  // Manual input
+  var mi = document.getElementById('manual-input');
+  if (mi) mi.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') cercaManuale();
   });
 });
