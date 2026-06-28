@@ -218,19 +218,39 @@ function aggiornaPin() {
 
 async function verificaPin() {
   document.getElementById('login-error').textContent = '';
-  var { data: op, error } = await supa
-    .from('profili')
-    .select('id, nome, azienda_id, ruolo')
-    .eq('pin', PIN)
-    .maybeSingle();
 
-  if (error || !op) {
-    document.getElementById('login-error').textContent = 'PIN non valido';
-    PIN = '';
-    aggiornaPin();
-    vibrazioneErr();
-    return;
+  try {
+    var res = await fetch(SUPABASE_URL + '/functions/v1/verifica-pin-scanner', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: PIN })
+    });
+    var data = await res.json();
+
+    if (!data.success) {
+      document.getElementById('login-error').textContent = data.error || 'PIN non valido';
+      PIN = ''; aggiornaPin(); vibrazioneErr();
+      return;
+    }
+
+    var op = data.operatore;
+    var eventi = data.eventi || [];
+    sessionStorage.setItem('scanner_op', JSON.stringify(op));
+
+    if (!eventi.length) {
+      document.getElementById('login-error').textContent = 'Nessun evento attivo trovato';
+      PIN = ''; aggiornaPin();
+      return;
+    }
+
+    if (eventi.length === 1) avviaScanner(op, eventi[0]);
+    else mostraSelezionaEvento(op, eventi);
+
+  } catch(e) {
+    document.getElementById('login-error').textContent = 'Errore di connessione';
+    PIN = ''; aggiornaPin();
   }
+}
 
   _operatore = op;
   sessionStorage.setItem('scanner_op', JSON.stringify(op));
@@ -612,24 +632,27 @@ function formatOra(t) {
 // ── Auto-login da sessione ────────────────────────────────────────────────
 (function(){
   var saved = sessionStorage.getItem('scanner_op');
-  if (saved) {
-    try {
-      var op = JSON.parse(saved);
-      // Cerca evento attivo
-      var supa2 = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-      supa2.from('ticket_eventi')
-        .select('id, nome, data_evento')
-        .eq('azienda_id', op.azienda_id)
-        .eq('stato', 'pubblicato')
-        .order('data_evento', { ascending: true })
-        .limit(5)
-        .then(function(res) {
-          var eventi = res.data || [];
-          if (eventi.length === 1) avviaScanner(op, eventi[0]);
-          else if (eventi.length > 1) mostraSelezionaEvento(op, eventi);
-        });
-    } catch(e) {}
-  }
+  if (!saved) return;
+  try {
+    var op = JSON.parse(saved);
+    fetch(SUPABASE_URL + '/functions/v1/verifica-pin-scanner', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: '__session__', azienda_id: op.azienda_id })
+    }).catch(function(){});
+    // Usa direttamente Supabase per eventi (solo lettura pubblica)
+    supa.from('ticket_eventi')
+      .select('id, nome, data_evento')
+      .eq('azienda_id', op.azienda_id)
+      .eq('stato', 'pubblicato')
+      .order('data_evento', { ascending: true })
+      .limit(5)
+      .then(function(res) {
+        var eventi = res.data || [];
+        if (eventi.length === 1) avviaScanner(op, eventi[0]);
+        else if (eventi.length > 1) mostraSelezionaEvento(op, eventi);
+      });
+  } catch(e) {}
 })();
 </script>
 </body>
