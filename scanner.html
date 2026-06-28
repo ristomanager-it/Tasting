@@ -218,24 +218,13 @@ function aggiornaPin() {
 
 async function verificaPin() {
   document.getElementById('login-error').textContent = '';
-  // Cerca operatore con questo PIN nel gestionale
   var { data: op, error } = await supa
     .from('profili')
-    .select('id, nome, azienda_id, ruolo, pin_scanner')
-    .eq('pin_scanner', PIN)
+    .select('id, nome, azienda_id, ruolo')
+    .eq('pin', PIN)
     .maybeSingle();
 
   if (error || !op) {
-    // Prova anche pin standard (colonna pin)
-    var { data: op2 } = await supa
-      .from('profili')
-      .select('id, nome, azienda_id, ruolo')
-      .eq('pin', PIN)
-      .maybeSingle();
-    op = op2;
-  }
-
-  if (!op) {
     document.getElementById('login-error').textContent = 'PIN non valido';
     PIN = '';
     aggiornaPin();
